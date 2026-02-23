@@ -576,8 +576,45 @@ The user questioned why the running balance shows negative inventory for 10 mont
 4. Purchases & Usage by Envelope Type (combined table + per-SKU/per-product detail)
 5. Envelope Specifications (7 types with physical specs)
 
+### 2026-02-23 (session 9 continued)
+
+**Accomplished:**
+- Searched `S:\Departments\Accounting\Private\Broadridge` exhaustively for ~$200K envelope/paper settlement document — not found in that directory
+- Located the settlement in the **GTO Proxy & BPS Early Renewal Term Sheet** (June 2022) in `C:\Users\smendoza\OneDrive - Apex Clearing\Broadridge Billing\Broadridge Contracts and Schedules`
+- Added **post-settlement inventory analysis** to Executive Summary covering Mar 2022 – Dec 2025
+
+**Pass-through paper dispute settlement:**
+- Source: GTO Proxy & BPS Early Renewal Term Sheet, ADDITIONAL section item #2
+- **$643,457.92** in accumulated paper and envelope costs prior to March 1, 2022 — Broadridge agreed to internalize (absorb) all costs
+- Apex began paying for paper and envelopes per contract terms effective March 1, 2022
+- Also in term sheet: $345,649 BPO Temp Worker Dispute — Apex to pay $222,982, Broadridge forgives remainder
+- Also: Apex agrees to reduce print as % of volumes by at least 30% by January 1, 2024
+
+**Post-settlement analysis (Mar 2022 – Dec 2025):**
+| Year | Purchased | Used | Variance | Var% | Avg Mo Used |
+|------|-----------|------|----------|------|-------------|
+| 2022 (Mar-Dec) | 5,807,000 | 4,629,923 | +1,177,077 | +20.3% | 462,992 |
+| 2023 | 6,571,000 | 6,081,272 | +489,728 | +7.5% | 506,773 |
+| 2024 | 4,621,000 | 4,688,341 | (67,341) | -1.5% | 390,695 |
+| 2025 | 4,040,500 | 3,912,009 | +128,491 | +3.2% | 326,001 |
+| **Total** | **21,039,500** | **19,311,545** | **+1,727,955** | **+8.2%** | |
+
+**Key findings:**
+- Implied inventory of 1,727,955 envelopes = **5.3 months buffer stock** at current usage (Broadridge policy: 2-3 months)
+- Average monthly usage declined **30%** from 462,992/mo (2022) to 326,001/mo (2025) — consistent with 30% print reduction target in term sheet
+- 2024 was nearly perfectly balanced at -1.5% variance
+- Running balance never goes negative after a brief dip in Apr 2022 (-64K)
+
+**Report structure (current):**
+1. Executive Summary (4 full-period KPI cards + settlement info box + 4 post-settlement KPI cards + year-by-year table + key findings)
+2. Monthly Trend (SVG bar chart)
+3. Monthly Detail (72 months + 6 annual subtotals + grand total)
+4. Purchases & Usage by Envelope Type (combined table + per-SKU/per-product detail)
+5. Envelope Specifications (7 types with physical specs)
+
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
 - [ ] Consider drafting formal letter to Broadridge re: contract variance and inventory management concerns
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
+- [ ] Investigate why implied inventory (5.3 months) exceeds Broadridge's stated 2-3 month buffer policy
