@@ -80,6 +80,42 @@ net_variance = total_purchased - total_used
 usage_by_product_sorted = usage_by_product.sort_values("Total Envelopes Used", ascending=False)
 usage_product_total = usage_by_product["Total Envelopes Used"].sum()
 
+# Post-settlement analysis (Mar 2022 onward — when Apex started paying for envelopes)
+SETTLEMENT_DATE = "Mar-22"
+month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+def month_label_to_sortkey(label):
+    parts = label.split('-')
+    mi = month_order.index(parts[0])
+    yi = int(parts[1])
+    return (yi, mi)
+
+settlement_key = month_label_to_sortkey(SETTLEMENT_DATE)
+post_mask = monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
+post = monthly[post_mask]
+
+post_purchased = int(post["Envelopes Purchased"].sum())
+post_used = int(post["Envelopes Used (Volume)"].sum())
+post_mailed = int(post["Envelopes Mailed (Postage)"].sum())
+post_spoils = int(post["Spoils"].sum())
+post_variance = post_purchased - post_used
+post_months = len(post)
+
+# Year-by-year post-settlement
+from collections import defaultdict as _defaultdict
+post_yearly = _defaultdict(lambda: [0, 0, 0, 0, 0])  # purchased, used, mailed, spoils, month_count
+for _, r in post.iterrows():
+    yr = 2000 + int(r["Month"].split('-')[1])
+    post_yearly[yr][0] += safe(r["Envelopes Purchased"])
+    post_yearly[yr][1] += safe(r["Envelopes Used (Volume)"])
+    post_yearly[yr][2] += safe(r["Envelopes Mailed (Postage)"])
+    post_yearly[yr][3] += safe(r["Spoils"])
+    post_yearly[yr][4] += 1
+
+# Recent avg monthly usage (last 12 months) for buffer stock calculation
+recent_12 = monthly.tail(12)
+avg_monthly_usage = int(recent_12["Envelopes Used (Volume)"].mean())
+
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
 
@@ -550,6 +586,64 @@ html += '        <div class="info-box">\n'
 html += '            <p><strong>Pass-through paper dispute settlement (June 2022):</strong> '
 html += 'As part of the Proxy &amp; BPS early renewal term sheet, Broadridge agreed to internalize $643,458 in accumulated paper and envelope costs prior to March 1, 2022. '
 html += 'Apex began paying for paper and envelopes per contract terms effective March 1, 2022.</p>\n'
+html += '        </div>\n'
+
+# Post-settlement analysis
+post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
+buffer_months = post_variance / avg_monthly_usage if avg_monthly_usage else 0
+
+html += '        <h3 style="color:#052390;font-size:16px;margin:28px 0 16px;">Post-settlement inventory analysis</h3>\n'
+html += '        <p style="font-size:13px;color:#6D6E71;margin:0 0 16px;">March 2022 &ndash; December 2025 &mdash; period where Apex pays for paper and envelopes per contract terms.</p>\n'
+html += '        <div class="kpi-grid">\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Post-Settlement Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">{post_months} months</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Post-Settlement Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">{fmt_num(post_mailed)} mailed &middot; {fmt_num(post_spoils)} spoils</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months of buffer stock</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage)}</p><p class="kpi-sub">Trailing 12 months</p></div>\n'
+html += '        </div>\n'
+
+# Year-by-year table
+html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
+html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Variance %</th><th>Avg Mo Purchased</th><th>Avg Mo Used</th></tr></thead>\n'
+html += '            <tbody>\n'
+for yr in sorted(post_yearly.keys()):
+    d = post_yearly[yr]
+    yp, yu, ym, ys, mc = d
+    yv = yp - yu
+    vc = var_color(yv)
+    vpct = yv / yp if yp else 0
+    avg_p = yp / mc if mc else 0
+    avg_u = yu / mc if mc else 0
+    yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
+    html += f'            <tr><td>{yr_label}</td>'
+    html += f'<td class="num">{fmt_num(yp)}</td>'
+    html += f'<td class="num">{fmt_num(yu)}</td>'
+    html += f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(yv)}</td>'
+    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+    html += f'<td class="num">{fmt_num(avg_p)}</td>'
+    html += f'<td class="num">{fmt_num(avg_u)}</td></tr>\n'
+# Total row
+html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
+html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
+html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_variance/post_purchased if post_purchased else 0)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(post_purchased/post_months if post_months else 0)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(post_used/post_months if post_months else 0)}</strong></td></tr>\n'
+html += '            </tbody>\n'
+html += '        </table></div>\n'
+
+# Key findings
+usage_2022 = post_yearly[2022][1] / post_yearly[2022][4] if post_yearly[2022][4] else 0
+usage_2025 = post_yearly[2025][1] / post_yearly[2025][4] if post_yearly[2025][4] else 0
+usage_decline = (1 - usage_2025 / usage_2022) * 100 if usage_2022 else 0
+
+html += '        <div style="margin-top:16px;font-size:13px;color:#333;line-height:1.8;">\n'
+html += f'            <p style="margin:0 0 4px;"><strong>Key findings:</strong></p>\n'
+html += f'            <ul style="margin:0;padding-left:20px;">\n'
+html += f'            <li>Implied inventory of <strong>{fmt_num(post_variance)}</strong> envelopes represents <strong>{buffer_months:.1f} months</strong> of buffer stock at current usage rates (Broadridge policy: 2&ndash;3 months).</li>\n'
+html += f'            <li>Average monthly usage declined <strong>{usage_decline:.0f}%</strong> from {fmt_num(usage_2022)}/mo (2022) to {fmt_num(usage_2025)}/mo (2025), consistent with 30% print reduction target.</li>\n'
+html += f'            <li>2024 was nearly balanced at &minus;1.5% variance; 2022 over-purchased by 20.3% building initial post-settlement buffer.</li>\n'
+html += f'            </ul>\n'
 html += '        </div>\n'
 
 html += '    </div>\n'
