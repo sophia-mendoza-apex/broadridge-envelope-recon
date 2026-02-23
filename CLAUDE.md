@@ -530,6 +530,52 @@ The user questioned why the running balance shows negative inventory for 10 mont
 4. Purchases & Usage Breakdown (side-by-side tables)
 5. Envelope Specifications (7 types with physical specs)
 
+### 2026-02-23 (session 9)
+
+**Accomplished:**
+- Added **usage by envelope type** — extracted `Flat_Fold` and `Address_Type` fields from billing workbook Volume Data sheets to map each usage record to a canonical envelope type
+- Created `map_usage_to_envelope_type()` function based on Brandon Koebel's Sep 2023 mail-type mapping
+- Added "Usage by Envelope Type" tab to Excel output
+- Built combined **Purchases & Usage by Envelope Type** table in HTML report, grouped by physical envelope size (not postage imprint) for meaningful comparison
+- Located the **pass-through paper dispute settlement** document — `GTO Proxy and BPS Term Sheet` (June 2022) in `C:\Users\smendoza\OneDrive - Apex Clearing\Broadridge Billing\Broadridge Contracts and Schedules`
+- Added settlement context info box to Executive Summary
+
+**Usage-to-envelope-type mapping:**
+| Product Category | Flat/Fold | Address Type | Envelope Type |
+|---|---|---|---|
+| STATEMENT | FOLD/MIXED/BULK | DOMESTIC/MIXED/other | ENVMEAPEXN14PFC |
+| STATEMENT | FLAT | DOMESTIC/MIXED/other | ENVMEAPEX9X12PFC |
+| STATEMENT | FOLD/MIXED/BULK | FOREIGN | ENVMERIDGEN14NI11/08 |
+| STATEMENT | FLAT | FOREIGN | ENVMERIDGE9X12NI11/08 |
+| CONFIRM/LETTER/CHECK | FOLD/MIXED/BULK | DOMESTIC/MIXED/other | ENVAPXN10 Confirms+Letters (PFC) |
+| CONFIRM/LETTER/CHECK | FLAT | any | ENVCONRIDGE9X12DW |
+| CONFIRM/LETTER/CHECK | FOLD/MIXED/BULK | FOREIGN | ENVCONPFSN10NI |
+| TAX DOCUMENT | any | any | Tax Form Envelopes (1099/1099-R) |
+
+**Combined envelope type table (grouped by physical size):**
+| Envelope Type | Purchased | Used | Variance | Var% |
+|---|---|---|---|---|
+| N14 Fold Statements | 10,038,000 | 9,467,708 | +570,292 | +5.7% |
+| 9x12 Flat Statements | 717,500 | 517,871 | +199,629 | +27.8% |
+| #10 Confirms + Letters | 19,012,000 | 16,970,875 | +2,041,125 | +10.7% |
+| 9x12 Flat Confirms | 80,000 | 198,707 | (118,707) | -148.4% |
+| Tax Form Envelopes | 218,000 | 59,852 | +158,148 | +72.5% |
+| **Total** | **30,065,500** | **27,215,013** | **+2,850,487** | **+9.5%** |
+
+**Pass-through paper dispute settlement (key finding):**
+- Source: GTO Proxy & BPS Early Renewal Term Sheet (June 2022)
+- Broadridge agreed to internalize **$643,457.92** in accumulated paper and envelope costs prior to March 1, 2022
+- Apex began paying for paper and envelopes per contract terms effective March 1, 2022
+- This explains why pre-2022 purchase data shows no markup — Broadridge was absorbing the cost
+- Settlement was part of broader Proxy & BPS early renewal negotiation
+
+**Report structure (current):**
+1. Executive Summary (4 KPI cards + settlement info box)
+2. Monthly Trend (SVG bar chart)
+3. Monthly Detail (72 months + 6 annual subtotals + grand total)
+4. Purchases & Usage by Envelope Type (combined table + per-SKU/per-product detail)
+5. Envelope Specifications (7 types with physical specs)
+
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
