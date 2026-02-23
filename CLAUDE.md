@@ -622,55 +622,81 @@ The user questioned why the running balance shows negative inventory for 10 mont
 ### 2026-02-23 (session 10)
 
 **Accomplished:**
-- CEO-lens review of HTML report — identified flow, relevance, and readability issues
-- Restructured entire HTML report for executive readability
-- Added inventory gauge, SKU recon table, and usage trend sparkline (in progress — interrupted mid-edit)
-- Changed avg monthly usage from trailing 12 months to trailing 6 months (rolling average for ongoing recon)
+- CEO-lens review and full report restructure for executive readability
+- Bottom Line callout, post-settlement KPIs promoted, full-period demoted to context line
+- Monthly Detail and Reference sections collapsed by default; nav links auto-expand
+- Added inventory gauge, SKU recon table, usage trend sparkline, usage-by-product table
+- Changed avg monthly usage from trailing 12 to trailing 6 months (rolling average for ongoing recon)
 
-**Report restructure (completed):**
-- Added **Bottom Line** callout at top of Executive Summary — data-driven recommendation adapts based on buffer stock level
-- Promoted post-settlement KPIs to primary position (Mar 2022–Dec 2025 = what Apex pays for)
-- Promoted key findings bullets immediately after KPIs
-- Demoted full-period (Jan 2020–Dec 2025) numbers from 4 KPI cards to a single gray context line
-- Consolidated settlement info into the context line (not a separate callout)
-- Simplified year-by-year table from 7 columns to 6 (dropped redundant "Avg Mo Purchased")
-- Monthly Detail now **collapsed by default** (click or nav link to expand)
-- Reference section (envelope specs, SKU detail, product detail) now **collapsed by default**
-- Nav links auto-expand collapsed sections when clicked
-- Print media query expands all collapsed sections
+### 2026-02-23 (session 11)
 
-**New features added (partially integrated — need HTML template wiring):**
-- `build_inventory_gauge()` — SVG horizontal gauge comparing actual inventory vs Broadridge 2-3 month policy range (amber/green/red zones with blue marker for actual)
-- `build_sku_recon_rows()` — Full SKU-level recon table showing purchased + used + variance + variance % for each envelope type (replaces purchase-only table)
-- `build_monthly_usage_trend()` — SVG sparkline showing rolling 6-month average usage over time with start/end labels
+**Accomplished:**
+- Completed all HTML template wiring from session 10 (inventory gauge, SKU recon, usage trend)
+- Analytical review of report — identified and fixed 7 issues
 
-**Still needs completion (interrupted mid-edit):**
-- [ ] Wire inventory gauge SVG into Executive Summary HTML (after KPI cards, before key findings)
-- [ ] Wire SKU recon table into By Type section (replace simple "Purchased by SKU" table)
-- [ ] Wire usage trend sparkline into Monthly Trend or Executive Summary
-- [ ] Move "Used by product" table back to main By Type section
-- [ ] Update KPI sub-text from "Trailing 12 months" to "Trailing 6 months"
-- [ ] Regenerate HTML report with all new visuals
-- [ ] Update Reference section to contain only envelope specs
+**Bug Fix 16 — `fmt_pct` percentage formatting:**
+- Any variance ratio exceeding +/-1.0 (i.e., >100%) displayed as raw ratio instead of percentage
+- Example: -148.4% showed as "-1.5%" because `abs(val) < 1` branch multiplied by 100, else branch did not
+- Fix: always multiply by 100 (`return f"{val * 100:.1f}%"`)
+- Affected: 9x12 Flat Confirms (-148.4%), Tax Forms (100.0%), and several monthly detail rows
 
-**Current report structure (as committed):**
-1. Executive Summary (bottom line + 4 post-settlement KPI cards + key findings + year-by-year table + full-period context line)
-2. Monthly Trend (SVG bar chart)
-3. Purchases & Usage by Envelope Type (combined groups table only)
-4. Monthly Detail (collapsed by default)
-5. Reference (collapsed by default — specs + SKU + product)
+**Bug Fix 17 — SKU usage mapping not date-aware:**
+- `map_usage_to_envelope_type()` in `build_recon_from_source.py` was static — always mapped domestic #10 confirms/letters to ENVAPXN10 (PFC)
+- Before Oct 2022, those envelopes were physically ENVCONPFSN10NI (NI version)
+- All pre-Oct 2022 domestic confirm/letter usage (~7.1M) was incorrectly attributed to the PFC SKU
+- Fix: added `month_key` parameter; domestic #10 usage before `2022-10` maps to ENVCONPFSN10NI, after maps to ENVAPXN10 (PFC)
+- Result: ENVAPXN10 (PFC) corrected from (7.3M) deficit to (182K) at -2.0%; ENVCONPFSN10NI corrected from 9.4M surplus to 2.2M at +23.0%
 
-**How to resume:**
-The Python functions `build_inventory_gauge()`, `build_sku_recon_rows()`, and `build_monthly_usage_trend()` are built and their outputs are computed in variables `inventory_gauge`, `sku_recon_rows`, and `usage_trend_svg`. They just need to be wired into the HTML template section of `generate_html_report.py`:
-1. Add `inventory_gauge` to Executive Summary after the KPI grid
-2. Replace the simple `env_type_rows` table in By Type section with `sku_recon_rows`
-3. Add `usage_trend_svg` as a visual
-4. Move `usage_product_rows` table back to By Type section
-5. Update Reference to only keep envelope specs
-6. Run `py -3 generate_html_report.py` to regenerate
+**Report scoped to post-settlement (Mar 2022 – Dec 2025):**
+- Header subtitle, SVG bar chart, monthly detail table, rolling usage trend all filtered to post-settlement
+- Removed Mailed and Spoils columns from monthly detail (noise — Mailed within 4K of Used every month, Spoils <2K most months)
+- By Type section retains full-period data with info box noting "~70% is post-settlement" (type-level monthly breakdown not available)
+- Pre-settlement context preserved in gray context line at bottom of Executive Summary
+- 2022 subtotal labeled "2022 (Mar–Dec)" for clarity
+
+**Spoilage confirmed:**
+- Post-settlement spoils: 55,733 of 19,311,545 used = 0.29%
+- Well within 10% contractual wastage limit
+- Added to Used KPI card sub-text and key findings bullet
+- Note: actual wastage (10-15% per Brandon Koebel) is embedded in "Used" figure, not separately reported as spoils
+
+**Other report improvements:**
+- SKU transition note: explains ENVCONPFSN10NI → ENVAPXN10 (PFC) Oct 2022 change
+- May-25 anomaly footnote: 752K usage with 0 purchases flagged for verification
+- Product-to-envelope mapping note: connects product names (Address Verification Letters, Monthly Statements, etc.) to physical envelope types
+- Full-period scope note on By Type section (info box)
+
+**Corrected SKU-level recon (after date-aware mapping fix):**
+| SKU | Purchased | Used | Variance | Var% |
+|-----|-----------|------|----------|------|
+| ENVAPXN10 Confirms+Letters (PFC) | 9,342,000 | 9,524,224 | (182,224) | -2.0% |
+| ENVMEAPEXN14PFC | 9,370,000 | 9,117,954 | +252,046 | +2.7% |
+| ENVCONPFSN10NI | 9,670,000 | 7,446,651 | +2,223,349 | +23.0% |
+| ENVMEAPEX9X12PFC | 652,500 | 500,829 | +151,671 | +23.2% |
+| ENVMERIDGEN14NI11/08 | 668,000 | 349,754 | +318,246 | +47.6% |
+| ENVCONRIDGE9X12DW | 80,000 | 198,707 | (118,707) | -148.4% |
+| Tax Form (1099/1099-R) | 210,000 | 59,852 | +150,148 | +71.5% |
+| ENVMERIDGE9X12NI11/08 | 65,000 | 17,042 | +47,958 | +73.8% |
+| Tax Form (1042/IRA) | 8,000 | 0 | +8,000 | +100.0% |
+| **Total** | **30,065,500** | **27,215,013** | **+2,850,487** | **+9.5%** |
+
+**Current report structure:**
+1. Executive Summary (bottom line + 4 KPIs + inventory gauge + key findings + year-by-year + context line)
+2. Monthly Trend (SVG bar chart — post-settlement + rolling 6-mo avg sparkline)
+3. Purchases & Usage by Envelope Type (grouped table + SKU recon + usage by product)
+4. Monthly Detail (collapsed, post-settlement, 6 columns)
+5. Reference (collapsed, envelope specs only)
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+```
 
 **Next Steps:**
-- [ ] Complete HTML template wiring (see above)
-- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
-- [ ] Clarify markup structure discrepancy between 2020-2024 and 2025
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%) suggests missing purchase records or misclassified usage
+- [ ] Verify May-25 752K usage spike — possible billing consolidation from multiple periods
+- [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
