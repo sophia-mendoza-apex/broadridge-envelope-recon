@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+
+# Source data (large Excel files - read-only, stored on OneDrive)
+Billing Master - 2020 - 2021.xlsx
+P&M Postage and Material Recon.xlsx
+Purchase Reports.zip
+Purchase Reports (from email)/
+
+# Generated outputs (reproducible via scripts)
+Envelope Reconciliation - Source Data.xlsx
+Envelope Reconciliation Report.html
+Envelope Reconciliation Mar2022-Current.xlsx
+
+# Contracts (confidential PDFs)
+*.pdf
+
+# Claude internals
+.claude/
+
+# Temp files
+_*.py
+_*.ps1
