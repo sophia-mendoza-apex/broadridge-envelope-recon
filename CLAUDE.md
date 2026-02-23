@@ -476,4 +476,47 @@ The user questioned why the running balance shows negative inventory for 10 mont
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
 - [ ] Consider drafting formal letter to Broadridge re: contract variance and inventory management concerns
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
-- [ ] Investigate whether the -2.9% deficit represents pre-2020 buffer stock drawdown or actual under-purchasing
+
+### 2026-02-23 (session 7)
+
+**Accomplished:**
+- Fixed critical 2022 double-counting bug — YTD file (`Apex YTD Envelope Usage (2).xlsx`) duplicated Jan-Aug 2022 volume and postage data already covered by individual billing workbooks, inflating 2022 usage by 3,716,075
+- Removed Data Quality section from HTML report; replaced with a one-line alert banner that only appears when months have missing source data
+- Removed all cost/invoiced columns and Contract Audit section from HTML report — report now focuses purely on purchased vs. used reconciliation
+- Regenerated Excel and HTML outputs with corrected data
+
+**Bug Fix 15 — YTD file double-counting 2022 volume and postage:**
+- `read_ytd_usage()` read Volume Data and Postage Data tabs from the YTD file, which contained identical records to the Jan-Aug 2022 individual billing workbooks
+- Every month from Jan-Aug 2022 was exactly doubled (e.g., Jan-22: 511,349 billing + 511,349 YTD = 1,022,698)
+- Total duplication: 3,716,075 volume records + 3,716,075 postage records
+- Fix: Removed `read_ytd_usage()` call from `main()` — function is entirely redundant with individual billing workbooks
+- Impact: 2022 variance corrected from -42.0% (2.7M deficit) to +14.9% (972K surplus)
+
+**Report changes:**
+- Removed: Data Quality section (full collapsible section with table)
+- Added: One-line alert banner at top of content area, only visible when months are missing
+- Removed: Total Invoiced KPI card, Contract Overcharge KPI card
+- Removed: Total Cost and Total Invoiced columns from Annual Summary table
+- Removed: Purchase Cost and Invoiced columns from Monthly Detail table
+- Removed: Total Cost and Avg Unit Price columns from Purchases by Envelope Type table
+- Removed: Contract Audit section entirely (terms grid, audit stats, top 10 discrepancies)
+- Removed: Data Quality and Contract Audit nav links
+- Removed: Unused CSS classes (`.terms-grid`, `.term-card`, `.audit-stats`, `.audit-stat`, `.flag-over`)
+- Removed: Unused Python functions (`fmt_money`, `fmt_money_always`, `fmt_money_parens`, `build_top10_audit_rows`, `build_dq_rows`)
+- Net reduction: 199 lines removed, 26 added (file went from 760 to 587 lines)
+
+**Corrected Key Findings (supersedes session 6):**
+| Metric | Session 6 | Session 7 (corrected) |
+|--------|-----------|----------------------|
+| Total Purchased | 30,065,500 | 30,065,500 |
+| Total Used (Volume) | 30,931,088 | 27,215,013 |
+| Total Mailed (Postage) | — | 27,210,696 |
+| Total Spoils | — | 84,822 |
+| Net Variance | (865,588) (-2.9%) | +2,850,487 (+9.5%) |
+| 2022 Variance | (2,744,001) (-42.0%) | +972,074 (+14.9%) |
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
+- [ ] Consider drafting formal letter to Broadridge re: contract variance and inventory management concerns
+- [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)

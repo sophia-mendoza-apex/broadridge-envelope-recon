@@ -14,8 +14,6 @@ HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
 annual = pd.read_excel(EXCEL_PATH, sheet_name="Annual Summary")
 by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
-detail = pd.read_excel(EXCEL_PATH, sheet_name="Purchase Detail")
-audit = pd.read_excel(EXCEL_PATH, sheet_name="Contract Audit")
 usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
 
 print("Data loaded successfully.")
@@ -27,36 +25,6 @@ def fmt_num(v):
         return DASH
     try:
         return f"{int(v):,}"
-    except (ValueError, TypeError):
-        return str(v)
-
-def fmt_money(v):
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return DASH
-    try:
-        val = float(v)
-        if val == 0:
-            return DASH
-        return f"${val:,.2f}"
-    except (ValueError, TypeError):
-        return str(v)
-
-def fmt_money_always(v):
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return DASH
-    try:
-        return f"${float(v):,.2f}"
-    except (ValueError, TypeError):
-        return str(v)
-
-def fmt_money_parens(v):
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return DASH
-    try:
-        val = float(v)
-        if val < 0:
-            return f"(${abs(val):,.2f})"
-        return f"${val:,.2f}"
     except (ValueError, TypeError):
         return str(v)
 
@@ -108,13 +76,6 @@ total_used = int(monthly["Envelopes Used (Volume)"].sum())
 total_mailed = int(monthly["Envelopes Mailed (Postage)"].sum())
 total_spoils = int(monthly["Spoils"].sum())
 net_variance = total_purchased - total_used
-total_cost = monthly["Purchase Cost"].sum()
-total_invoiced = monthly["Invoiced Amount"].sum()
-
-audit_over = int((audit["Flag"] == "OVER").sum())
-audit_under = int((audit["Flag"] == "UNDER").sum())
-audit_ok = int((audit["Flag"] == "OK").sum())
-audit_net_diff = audit["Difference"].sum()
 
 usage_by_product_sorted = usage_by_product.sort_values("Total Envelopes Used", ascending=False)
 usage_product_total = usage_by_product["Total Envelopes Used"].sum()
@@ -122,12 +83,17 @@ usage_product_total = usage_by_product["Total Envelopes Used"].sum()
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
 
-audit_sorted = audit.copy()
-audit_sorted["AbsDiff"] = audit_sorted["Difference"].abs()
-audit_sorted = audit_sorted.sort_values("AbsDiff", ascending=False)
-top10_audit = audit_sorted.head(10)
+# Check for missing months (shown as alert banner if any gaps exist)
+def find_missing_months():
+    expected = []
+    for y in range(2020, 2026):
+        for m in range(1, 13):
+            label = f'{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]}-{y % 100:02d}'
+            expected.append(label)
+    present = set(monthly["Month"].tolist())
+    return [label for label in expected if label not in present]
 
-## zero_purchase / zero_usage removed — 0 values mean no activity, not missing data
+missing_months = find_missing_months()
 
 def build_svg_chart():
     months = monthly["Month"].tolist()
@@ -191,8 +157,6 @@ def build_annual_rows():
             + f'<td class="num">{fmt_num(r["Spoils"])}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
-            + f'<td class="num">{fmt_money(r["Total Cost"])}</td>'
-            + f'<td class="num">{fmt_money(r["Total Invoiced"])}</td>'
             + '</tr>'
         )
     gp = int(annual["Envelopes Purchased"].sum())
@@ -200,8 +164,6 @@ def build_annual_rows():
     gm = int(annual["Envelopes Mailed (Postage)"].sum())
     gs = int(annual["Spoils"].sum())
     gv = gp - gu
-    gc = annual["Total Cost"].sum()
-    gi = annual["Total Invoiced"].sum()
     vc = var_color(gv)
     rows.append(
         '<tr class="total-row">'
@@ -212,8 +174,6 @@ def build_annual_rows():
         + f'<td class="num"><strong>{fmt_num(gs)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_money(gc)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_money(gi)}</strong></td>'
         + '</tr>'
     )
     return "\n".join(rows)
@@ -237,8 +197,6 @@ def build_monthly_rows():
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(r["Variance %"])}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
-            + f'<td class="num">{fmt_money(r["Purchase Cost"])}</td>'
-            + f'<td class="num">{fmt_money(r["Invoiced Amount"])}</td>'
             + '</tr>'
         )
     return "\n".join(rows)
@@ -253,30 +211,7 @@ def build_env_type_rows():
             '<tr>'
             + f'<td class="env-name">{r["Envelope Type"]}</td>'
             + f'<td class="num">{fmt_num(tp)}</td>'
-            + f'<td class="num">{fmt_money(r["Total Cost"])}</td>'
-            + f'<td class="num">{fmt_money_always(r["Avg Unit Price"])}</td>'
             + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
-def build_top10_audit_rows():
-    rows = []
-    for _, r in top10_audit.iterrows():
-        diff = safe(r["Difference"])
-        vc = "#9D1526" if diff > 0 else "#186741"
-        flag = r["Flag"]
-        fc = "flag-over" if flag == "OVER" else ("flag-under" if flag == "UNDER" else "flag-ok")
-        rows.append(
-            '<tr>'
-            + f'<td>{r["Month"]}</td>'
-            + f'<td class="env-name">{r["Description"]}</td>'
-            + f'<td class="num">{fmt_num(r["Qty Ordered"])}</td>'
-            + f'<td class="num">{fmt_money_always(r["Unit Price"])}</td>'
-            + f'<td class="num">{fmt_money_always(r["Expected Invoiced"])}</td>'
-            + f'<td class="num">{fmt_money_always(r["Actual Invoiced"])}</td>'
-            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_money_parens(diff)}</td>'
-            + f'<td><span class="{fc}">{flag}</span></td>'
             + '</tr>'
         )
     return "\n".join(rows)
@@ -298,40 +233,13 @@ def build_usage_by_product_rows():
         )
     return "\n".join(rows)
 
-def build_dq_rows():
-    rows = []
-    # Flag months entirely missing from the data (no row at all)
-    # Build expected month range Mar-22 to Dec-25
-    expected = []
-    for y in range(2020, 2026):
-        start_m = 1
-        for m in range(start_m, 13):
-            label = f'{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]}-{y % 100:02d}'
-            expected.append(label)
-    present = set(monthly["Month"].tolist())
-    for label in expected:
-        if label not in present:
-            rows.append(
-                '<tr>'
-                + f'<td>{label}</td>'
-                + '<td>No data &mdash; missing both purchase report and billing workbook</td>'
-                + '<td class="num">0</td>'
-                + '<td class="num">0</td>'
-                + '<td><span class="flag-over">Request from Broadridge</span></td>'
-                + '</tr>'
-            )
-    return "\n".join(rows)
-
 svg_chart = build_svg_chart()
 annual_rows = build_annual_rows()
 monthly_rows = build_monthly_rows()
 env_type_rows = build_env_type_rows()
 usage_product_rows = build_usage_by_product_rows()
-top10_rows = build_top10_audit_rows()
-dq_rows = build_dq_rows()
 
 kpi_var_color = "#9D1526" if net_variance < 0 else "#186741"
-kpi_over_color = "#9D1526" if audit_net_diff > 0 else "#186741"
 
 CSS = """*, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -387,10 +295,10 @@ body {
 .kpi-card .kpi-sub { font-size: 12px; color: #6D6E71; margin: 6px 0 0; }
 .alert-box {
     background: rgba(252, 94, 23, 0.06); border-left: 4px solid #FC5E17;
-    border-radius: 0 8px 8px 0; padding: 20px 24px; margin-bottom: 10px;
+    border-radius: 0 8px 8px 0; padding: 16px 24px; margin-bottom: 20px;
 }
-.alert-box h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: #FC5E17; }
-.alert-box p { margin: 0 0 10px; font-size: 13px; color: #333; }
+.alert-box p { margin: 0; font-size: 13px; color: #333; }
+.alert-box strong { color: #FC5E17; }
 .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; background: #FFFFFF; }
 table th {
@@ -405,17 +313,12 @@ table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
 table tbody tr:hover { background: #EBF7FF !important; }
 .total-row { background: #F5F5F7 !important; border-top: 2px solid #E2E2E2; }
-.zero-inv { color: #9D1526; opacity: 0.6; }
 .bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
 .bar-fill {
     height: 18px; background: linear-gradient(90deg, #2954F0, #3F8EFC);
     border-radius: 9px; min-width: 3px;
 }
 .bar-label { font-size: 12px; font-weight: 500; color: #6D6E71; white-space: nowrap; }
-.flag-over {
-    background: #FDEAEC; color: #9D1526; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
 .flag-under {
     background: #E8F5E9; color: #186741; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -423,24 +326,6 @@ table tbody tr:hover { background: #EBF7FF !important; }
 .flag-ok {
     background: #F5F5F7; color: #6D6E71; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
-.terms-grid { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
-.term-card {
-    flex: 1 1 280px; background: #FFFFFF; border-radius: 10px; padding: 20px 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-top: 3px solid #2954F0;
-}
-.term-card h4 { margin: 0 0 12px; font-size: 14px; color: #052390; font-weight: 600; }
-.term-card table { box-shadow: none; }
-.term-card table th { position: static; background: #F5F5F7; color: #052390; }
-.audit-stats { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
-.audit-stat {
-    flex: 1 1 160px; background: #FFFFFF; border-radius: 10px; padding: 18px 22px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center;
-}
-.audit-stat .stat-val { font-size: 28px; font-weight: 700; margin: 0; }
-.audit-stat .stat-label {
-    font-size: 12px; font-weight: 600; color: #6D6E71;
-    text-transform: uppercase; margin: 4px 0 0;
 }
 .footer {
     text-align: center; padding: 32px 40px; font-size: 12px;
@@ -533,16 +418,21 @@ html += '</div>\n'
 
 html += '<nav class="nav">\n'
 html += '    <a href="#executive-summary">Summary</a>\n'
-html += '    <a href="#data-quality">Data Quality</a>\n'
 html += '    <a href="#annual-summary">Annual</a>\n'
 html += '    <a href="#monthly-trend">Trend</a>\n'
 html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
 html += '    <a href="#envelope-types">Purchases by Type</a>\n'
 html += '    <a href="#envelope-specs">Envelope Specs</a>\n'
 html += '    <a href="#usage-by-product">Usage by Product</a>\n'
-html += '    <a href="#contract-audit">Contract Audit</a>\n'
 html += '</nav>\n'
 html += '<div class="content">\n'
+
+# Missing data alert (shown only if gaps exist)
+if missing_months:
+    html += '    <div class="alert-box">\n'
+    html += f'        <p><strong>&#9888; Missing data:</strong> {", ".join(missing_months)} &mdash; '
+    html += 'missing source files affect variance calculations.</p>\n'
+    html += '    </div>\n\n'
 
 # Executive Summary
 html += '<div class="section" id="executive-summary">\n'
@@ -556,36 +446,12 @@ html += '        <div class="kpi-grid">\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Total Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(total_purchased)}</p><p class="kpi-sub">Jan 2020 &ndash; Dec 2025</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Total Used (Volume)</p><p class="kpi-value" style="color:#2954F0">{fmt_num(total_used)}</p><p class="kpi-sub">{fmt_num(total_mailed)} mailed &middot; {fmt_num(total_spoils)} spoils</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Net Variance</p><p class="kpi-value" style="color:{kpi_var_color}">{fmt_num_parens(net_variance)}</p><p class="kpi-sub">Purchased minus used</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Total Invoiced</p><p class="kpi-value" style="color:#2954F0">{fmt_money_always(total_invoiced)}</p><p class="kpi-sub">Total cost: {fmt_money_always(total_cost)}</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Contract Overcharge</p><p class="kpi-value" style="color:{kpi_over_color}">{fmt_money_parens(audit_net_diff)}</p><p class="kpi-sub">{audit_over} over &middot; {audit_under} under &middot; {audit_ok} OK</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Variance %</p><p class="kpi-value" style="color:{kpi_var_color}">{net_variance/total_purchased*100 if total_purchased else 0:.1f}%</p><p class="kpi-sub">{"Surplus" if net_variance >= 0 else "Deficit"}</p></div>\n'
 
 html += '        </div>\n'
 
 html += '    </div>\n'
 html += '</div>\n\n'
-
-# Data Quality
-html += '<div class="section" id="data-quality">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Data quality notes</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-if dq_rows.strip():
-    html += '        <div class="alert-box">\n'
-    html += '            <h3>&#9888; Outstanding data gaps</h3>\n'
-    html += '            <p>The following months have missing source files that need to be requested from Broadridge. '
-    html += 'These gaps affect the running balance and net variance calculations. '
-    html += 'The reconciliation period is January 2020 through December 2025.</p>\n'
-    html += '        </div>\n'
-    html += '        <div class="table-wrap"><table>\n'
-    html += '            <thead><tr><th>Month</th><th>Issue</th><th>Usage</th><th>Purchases</th><th>Action</th></tr></thead>\n'
-    html += '            <tbody>\n' + dq_rows + '\n            </tbody>\n'
-    html += '        </table></div>\n'
-else:
-    html += '        <p style="color:#186741;font-weight:600;font-size:14px;">&#10003; All months from January 2020 through December 2025 have source data. No outstanding gaps.</p>\n'
-html += '    </div>\n</div>\n\n'
 
 # Annual Summary
 html += '<div class="section" id="annual-summary">\n'
@@ -595,7 +461,7 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Year","Purchased","Used","Mailed","Spoils","Net Variance","Running Balance","Total Cost","Total Invoiced"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Year","Purchased","Used","Mailed","Spoils","Net Variance","Running Balance"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + annual_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
@@ -620,7 +486,7 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Mailed","Spoils","Net Variance","Variance %","Running Balance","Purchase Cost","Invoiced"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Mailed","Spoils","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
@@ -633,7 +499,7 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Total Purchased","Total Cost","Avg Unit Price"]) + '<th>% of Total</th></tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Envelope Type","Total Purchased"]) + '<th>% of Total</th></tr></thead>\n'
 html += '            <tbody>\n' + env_type_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
@@ -698,45 +564,6 @@ html += '            <thead><tr>' + th_row(["Product Name","Total Used","First M
 html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
-
-# Contract Audit
-html += '<div class="section" id="contract-audit">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Contract audit summary</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-
-# Contract terms
-html += '        <div class="terms-grid">\n'
-html += '            <div class="term-card"><h4>Original contract (Jan 2019)</h4>\n'
-html += '                <table><thead><tr><th>Term</th><th>Value</th></tr></thead>\n'
-html += '                <tbody><tr><td>Markup</td><td>15%</td></tr>\n'
-html += '                <tr><td>Effective Date</td><td>January 2019</td></tr>\n'
-html += '                <tr><td>Scope</td><td>Print &amp; mail services</td></tr></tbody></table></div>\n'
-html += '            <div class="term-card"><h4>Amendment No. 1 (Jan 2024)</h4>\n'
-html += '                <table><thead><tr><th>Term</th><th>Value</th></tr></thead>\n'
-html += '                <tbody><tr><td>Markup</td><td>Reduced / revised</td></tr>\n'
-html += '                <tr><td>Effective Date</td><td>January 2024</td></tr>\n'
-html += '                <tr><td>Scope</td><td>Updated pricing schedule</td></tr></tbody></table></div>\n'
-html += '        </div>\n'
-
-# Audit stats
-html += '        <div class="audit-stats">\n'
-html += f'            <div class="audit-stat"><p class="stat-val" style="color:#9D1526">{audit_over}</p><p class="stat-label">Over-billed lines</p></div>\n'
-html += f'            <div class="audit-stat"><p class="stat-val" style="color:#186741">{audit_under}</p><p class="stat-label">Under-billed lines</p></div>\n'
-html += f'            <div class="audit-stat"><p class="stat-val" style="color:#6D6E71">{audit_ok}</p><p class="stat-label">Correctly billed</p></div>\n'
-html += f'            <div class="audit-stat"><p class="stat-val" style="color:{kpi_over_color}">{fmt_money_parens(audit_net_diff)}</p><p class="stat-label">Net overcharge</p></div>\n'
-html += '        </div>\n'
-
-# Top 10
-html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 12px;">Top 10 largest discrepancies</h3>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Description","Qty","Unit Price","Expected","Actual","Difference","Flag"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + top10_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '    </div>\n</div>\n\n'
-
 
 html += '</div><!-- end .content -->\n\n'
 

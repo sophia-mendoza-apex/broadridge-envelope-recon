@@ -1091,9 +1091,9 @@ def main():
     print(f"  Postage records extracted: {len(postage_records):,}")
     print()
 
-    print("Processing YTD Usage File...")
-    read_ytd_usage()
-    print(f"  YTD usage records: {len(ytd_usage_records):,}")
+    # YTD file (Apex YTD Envelope Usage) is redundant — its Volume Data and
+    # Postage Data tabs duplicate Jan-Aug 2022 billing workbooks exactly,
+    # causing double-counting.  Individual billing workbooks cover all months.
     print()
 
     print()
