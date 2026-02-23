@@ -515,6 +515,21 @@ The user questioned why the running balance shows negative inventory for 10 mont
 | Net Variance | (865,588) (-2.9%) | +2,850,487 (+9.5%) |
 | 2022 Variance | (2,744,001) (-42.0%) | +972,074 (+14.9%) |
 
+### 2026-02-23 (session 8)
+
+**Accomplished:**
+- Consolidated Annual Summary and Monthly Detail into a single table with annual subtotal rows after each December and a grand total row at the bottom; removed separate Annual Summary section
+- Merged "Purchases by Envelope Type" and "Usage by Product" into a single side-by-side section ("Purchases & usage breakdown"); removed separate Usage by Product section
+- Verified annual/monthly data integrity — all 6 years match exactly between the two views
+- Added `.subtotal-row` CSS styling and excluded subtotal rows from column sorting
+
+**Report structure (current):**
+1. Executive Summary (4 KPI cards)
+2. Monthly Trend (SVG bar chart)
+3. Monthly Detail (72 months + 6 annual subtotals + grand total)
+4. Purchases & Usage Breakdown (side-by-side tables)
+5. Envelope Specifications (7 types with physical specs)
+
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)

@@ -12,7 +12,6 @@ EXCEL_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation - Source Data.xlsx"
 HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
-annual = pd.read_excel(EXCEL_PATH, sheet_name="Annual Summary")
 by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
 usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
 
@@ -140,65 +139,89 @@ def build_svg_chart():
     L.append("</svg>")
     return "\n".join(L)
 
-def build_annual_rows():
+def build_monthly_rows():
+    """Build monthly rows with annual subtotals after each December and a grand total."""
     rows = []
     running_balance = 0
-    for _, r in annual.iterrows():
-        vv = safe(r["Net Variance"])
-        vc = var_color(vv)
-        running_balance += vv
-        rbc = var_color(running_balance)
-        rows.append(
-            '<tr>'
-            + f'<td>{int(r["Year"])}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Purchased"])}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Used (Volume)"])}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Mailed (Postage)"])}</td>'
-            + f'<td class="num">{fmt_num(r["Spoils"])}</td>'
-            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
-            + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
+    # Year accumulators
+    yr_p = yr_u = yr_m = yr_s = 0
+    prev_year = None
+
+    def _year_from_label(label):
+        return 2000 + int(label.split('-')[1])
+
+    def _subtotal_row(year, yp, yu, ym, ys, rb):
+        yv = yp - yu
+        vc = var_color(yv)
+        rbc = var_color(rb)
+        vpct = yv / yp if yp else 0
+        return (
+            '<tr class="subtotal-row">'
+            + f'<td><strong>{year} Total</strong></td>'
+            + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
+            + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
+            + f'<td class="num"><strong>{fmt_num(ym)}</strong></td>'
+            + f'<td class="num"><strong>{fmt_num(ys)}</strong></td>'
+            + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
+            + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
+            + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
             + '</tr>'
         )
-    gp = int(annual["Envelopes Purchased"].sum())
-    gu = int(annual["Envelopes Used (Volume)"].sum())
-    gm = int(annual["Envelopes Mailed (Postage)"].sum())
-    gs = int(annual["Spoils"].sum())
-    gv = gp - gu
-    vc = var_color(gv)
-    rows.append(
-        '<tr class="total-row">'
-        + f'<td><strong>Grand Total</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(gp)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(gu)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(gm)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(gs)}</strong></td>'
-        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
-        + '</tr>'
-    )
-    return "\n".join(rows)
 
-def build_monthly_rows():
-    rows = []
-    running_balance = 0
     for i, (_, r) in enumerate(monthly.iterrows()):
-        vv = safe(r["Net Variance (Purchased - Used)"])
-        vc = var_color(vv)
+        cur_year = _year_from_label(r["Month"])
+
+        # Insert subtotal when year changes (not on the first row)
+        if prev_year is not None and cur_year != prev_year:
+            rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_m, yr_s, running_balance))
+            yr_p = yr_u = yr_m = yr_s = 0
+
+        prev_year = cur_year
+        p = safe(r["Envelopes Purchased"])
+        u = safe(r["Envelopes Used (Volume)"])
+        m = safe(r["Envelopes Mailed (Postage)"])
+        s = safe(r["Spoils"])
+        vv = p - u
         running_balance += vv
+        yr_p += p; yr_u += u; yr_m += m; yr_s += s
+
+        vc = var_color(vv)
         rbc = var_color(running_balance)
         bg = "#F5F5F7" if i % 2 == 1 else "#FFFFFF"
         rows.append(
             f'<tr style="background:{bg}">'
             + f'<td>{r["Month"]}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Purchased"])}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Used (Volume)"])}</td>'
-            + f'<td class="num">{fmt_num(r["Envelopes Mailed (Postage)"])}</td>'
-            + f'<td class="num">{fmt_num(r["Spoils"])}</td>'
+            + f'<td class="num">{fmt_num(p)}</td>'
+            + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num">{fmt_num(m)}</td>'
+            + f'<td class="num">{fmt_num(s)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(r["Variance %"])}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
             + '</tr>'
         )
+
+    # Final year subtotal
+    if prev_year is not None:
+        rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_m, yr_s, running_balance))
+
+    # Grand total
+    gv = total_purchased - total_used
+    vc = var_color(gv)
+    rbc = var_color(running_balance)
+    gpct = gv / total_purchased if total_purchased else 0
+    rows.append(
+        '<tr class="total-row">'
+        + f'<td><strong>Grand Total</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(total_purchased)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(total_used)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(total_mailed)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(total_spoils)}</strong></td>'
+        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
+        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
+        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
+        + '</tr>'
+    )
     return "\n".join(rows)
 
 def build_env_type_rows():
@@ -226,15 +249,12 @@ def build_usage_by_product_rows():
             '<tr>'
             + f'<td class="env-name">{r["Product Name"]}</td>'
             + f'<td class="num">{fmt_num(used)}</td>'
-            + f'<td>{r["First Month"]}</td>'
-            + f'<td>{r["Last Month"]}</td>'
             + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
             + '</tr>'
         )
     return "\n".join(rows)
 
 svg_chart = build_svg_chart()
-annual_rows = build_annual_rows()
 monthly_rows = build_monthly_rows()
 env_type_rows = build_env_type_rows()
 usage_product_rows = build_usage_by_product_rows()
@@ -312,6 +332,7 @@ table td { padding: 8px 14px; border-bottom: 1px solid #F0F0F0; white-space: now
 table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
 table tbody tr:hover { background: #EBF7FF !important; }
+.subtotal-row { background: #EDF0F7 !important; border-top: 2px solid #C5CAD6; }
 .total-row { background: #F5F5F7 !important; border-top: 2px solid #E2E2E2; }
 .bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
 .bar-fill {
@@ -366,7 +387,7 @@ function sortTable(th, colIdx) {
     var table = th.closest('table');
     var tbody = table.querySelector('tbody');
     var rows = Array.from(tbody.querySelectorAll('tr')).filter(function(r) {
-        return !r.classList.contains('total-row');
+        return !r.classList.contains('total-row') && !r.classList.contains('subtotal-row');
     });
     var totalRow = tbody.querySelector('.total-row');
     var asc = th.getAttribute('data-sort-dir') !== 'asc';
@@ -418,12 +439,10 @@ html += '</div>\n'
 
 html += '<nav class="nav">\n'
 html += '    <a href="#executive-summary">Summary</a>\n'
-html += '    <a href="#annual-summary">Annual</a>\n'
 html += '    <a href="#monthly-trend">Trend</a>\n'
 html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
-html += '    <a href="#envelope-types">Purchases by Type</a>\n'
+html += '    <a href="#envelope-types">Purchases &amp; Usage</a>\n'
 html += '    <a href="#envelope-specs">Envelope Specs</a>\n'
-html += '    <a href="#usage-by-product">Usage by Product</a>\n'
 html += '</nav>\n'
 html += '<div class="content">\n'
 
@@ -453,19 +472,6 @@ html += '        </div>\n'
 html += '    </div>\n'
 html += '</div>\n\n'
 
-# Annual Summary
-html += '<div class="section" id="annual-summary">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Annual summary</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Year","Purchased","Used","Mailed","Spoils","Net Variance","Running Balance"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + annual_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '    </div>\n</div>\n\n'
-
 # Monthly Trend
 html += '<div class="section" id="monthly-trend">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
@@ -491,17 +497,29 @@ html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
 
-# Envelope Types
+# Envelope Types (purchases + usage side by side)
 html += '<div class="section" id="envelope-types">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Purchases by envelope type</h2>\n'
+html += '        <h2>Purchases &amp; usage breakdown</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Total Purchased"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + env_type_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
+html += '        <div style="display:flex;gap:24px;flex-wrap:wrap;">\n'
+html += '            <div style="flex:1 1 400px;">\n'
+html += '                <h3 style="color:#052390;font-size:15px;margin:0 0 12px;">Purchased by envelope type</h3>\n'
+html += '                <div class="table-wrap"><table class="sortable">\n'
+html += '                    <thead><tr>' + th_row(["Envelope Type","Total Purchased"]) + '<th>% of Total</th></tr></thead>\n'
+html += '                    <tbody>\n' + env_type_rows + '\n                    </tbody>\n'
+html += '                </table></div>\n'
+html += '            </div>\n'
+html += '            <div style="flex:1 1 400px;">\n'
+html += '                <h3 style="color:#052390;font-size:15px;margin:0 0 12px;">Used by product</h3>\n'
+html += '                <div class="table-wrap"><table class="sortable">\n'
+html += '                    <thead><tr>' + th_row(["Product Name","Total Used"]) + '<th>% of Total</th></tr></thead>\n'
+html += '                    <tbody>\n' + usage_product_rows + '\n                    </tbody>\n'
+html += '                </table></div>\n'
+html += '            </div>\n'
+html += '        </div>\n'
 html += '    </div>\n</div>\n\n'
 
 # Envelope Specifications
@@ -550,19 +568,6 @@ html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; pos
 html += '            <span><strong>DW</strong> = Double Window</span>\n'
 html += '            <span><strong>IND</strong> = Individual (Oct 2022 revision)</span>\n'
 html += '        </div>\n'
-html += '    </div>\n</div>\n\n'
-
-# Usage by Product
-html += '<div class="section" id="usage-by-product">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Usage by product</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Product Name","Total Used","First Month","Last Month"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
 
 html += '</div><!-- end .content -->\n\n'
