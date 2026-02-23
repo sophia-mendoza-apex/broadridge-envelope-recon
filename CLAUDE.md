@@ -700,3 +700,77 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 - [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%) suggests missing purchase records or misclassified usage
 - [ ] Verify May-25 752K usage spike — possible billing consolidation from multiple periods
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
+
+### 2026-02-23 (session 12)
+
+**Accomplished:**
+- Comprehensive Outlook email search across all folders — 7 keyword/sender searches covering envelope, United Envelope, wastage/spoilage, print and mail, @broadridge.com senders, postage, and commodities
+- Read and analyzed 9 email threads not previously reviewed (beyond the 130 Koebel/Denci emails from session 4)
+
+**Key New Findings from Outlook:**
+
+1. **Envelope wastage confirmed at 5% (Aug 23, 2023)**
+   - Christopher Denci formally answered Terry Ray's renewal pricing questions
+   - *"The current agreement reflects Inventory Cost Plus 10% margin. Materials are billed at cost plus wastage for generic stock. Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock."*
+   - Generic stock (envelopes): unit rate billed based on **usage**
+   - Client-specific stock: unit rate billed based on **receipt**
+   - Pre-2024: 5% wastage on envelopes; Post-2024 Amendment: 2% wastage + 10% margin
+
+2. **Materials NOT included in annual fee (May 31, 2023)**
+   - Sameer Jobanputra confirmed: Section 4 "Compensation" states materials (paper, envelopes, inserts) charged separately from the $475K annual fee
+
+3. **Interim Extension Agreement executed Dec 27, 2023**
+   - File: `apex extension 12-27 fully executed.pdf`
+   - Negotiated by John Russ (Broadridge GRM), signed before formal Amendment No. 1
+
+4. **PostEdge reconciliation limitations (Aug 23, 2023)**
+   - 500K+ line items per month, over an hour to download
+   - No domestic vs. foreign postage breakout, no image volume data
+   - Matthew Burkavage (Broadridge) offered alternative reconciliation tools
+
+5. **PostEdge ICS credits — $63K expected (Jan 4, 2024)**
+   - Andy Graf projected ~$650K in ICS credits; your calculation estimated ~$63,475.92
+   - Credits expected as credit memo, not cash payment
+
+6. **Insert SOW pricing details (Sep 12, 2023)**
+   - Brandon Koebel: insert estimates add 10-20% for waste and new accounts
+   - Insert paper: 24# stock (= 60# text), thicker to avoid machine jams
+   - SOWs are estimates; actual billing per-unit
+   - Logan Jones: Apex not currently upcharging inserts to correspondents
+
+**Broadridge Contact Map (compiled from all threads):**
+| Person | Role | Handles |
+|--------|------|---------|
+| Christopher Denci | ICS Account Manager | Post-sale, pricing definitions |
+| Sameer Jobanputra | BRCC Account Manager | BRCC mailing, invoices |
+| Brandon Koebel | Sr. Client Relationship Manager | Envelope ops, inserts, billing data |
+| Josh Edelstein | GRM | Renewal proposals |
+| John Russ | Global Relationship Management | Contract execution |
+| Brian O'Toole | Account Management | A/R, billing disputes |
+| Matthew Burkavage | Supervisor, Post Sale Client Services | PostEdge access |
+| Michael Schnupp | Director, Account Mgmt - GTO | Escalation, postage detail |
+| Kimberly Rookwood | GTO Relationship | Initial contact routing |
+| Lynnette Kappler | GTO AR | Outstanding invoices |
+| Gary Stuart | GTO AR | Aged A/R |
+| Woodie Cheu | (unknown) | Outstanding items |
+
+**Email threads reviewed this session:**
+| Thread | Dates | Key Content |
+|--------|-------|-------------|
+| Request for Definitions of Charges | Aug 2023 | Terry Ray → Denci/Edelstein; formal charge definitions including wastage rates |
+| Print and Mailing Services | May-Aug 2023 | Sameer Jobanputra; materials separate from annual fee |
+| Interim Agreement | Dec 2023-Jan 2024 | Extension letter executed 12/27/23; renewal timeline |
+| Apex/Broadridge Renewals | Feb 2024 | Terry Ray forward; references spoilage in context |
+| May-2021 Confirm Postage Detail | Aug 2021 | Michael Schnupp; Address Letter Volume attachment |
+| PostEdge Access | Aug 2023 | Matthew Burkavage; PostEdge limitations documented |
+| BR Postedge (ICS credits) | Jan 2024 | Andy Graf; $63K credit estimate |
+| Insert Grps Production Table | Apr-Sep 2023 | Insert pricing, SOW process, waste estimates |
+| Ally Mass Mailing | Dec 2023 | United Envelope mentioned in context |
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Clarify markup structure: pre-2024 = cost + 5% wastage + 10% margin vs 2025 showing 31.8%
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)
+- [ ] Verify May-25 752K usage spike
+- [ ] Request actual Jun-20 purchase report from Broadridge
