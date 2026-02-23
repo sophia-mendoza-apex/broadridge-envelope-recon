@@ -769,7 +769,64 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
-- [ ] Clarify markup structure: pre-2024 = cost + 5% wastage + 10% margin vs 2025 showing 31.8%
+- [x] ~~Clarify markup structure: pre-2024 = cost + 5% wastage + 10% margin vs 2025 showing 31.8%~~ — Resolved in session 13
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)
+- [ ] Verify May-25 752K usage spike
+- [ ] Request actual Jun-20 purchase report from Broadridge
+
+### 2026-02-23 (session 13)
+
+**Accomplished:**
+- Investigated and resolved the reported "31.8% markup discrepancy" in 2025 purchase data
+- Read both contracts (original Jan 2019, Amendment No. 1 Jan 2024) and extracted exact pricing formulas
+- Examined raw purchase report files across all three format eras (old .xlsm, new .xlsx)
+- Identified and fixed two bugs in `build_recon_from_source.py` that caused incorrect cost/invoiced calculations
+- Rebuilt Excel and HTML outputs with corrected data
+
+**Contract pricing formulas (extracted from contract language):**
+| Period | Formula | Effective Rate |
+|--------|---------|----------------|
+| Jan 2019 – Dec 2023 | Vendor price + 5% wastage | 5.0% over vendor |
+| Jan 2024 – present | (Vendor price + 2% wastage) × 1.10 margin | 12.2% over vendor |
+
+**Bug Fix 18 — Old format (.xlsm) vendor cost lost:**
+- `read_standard_purchase()` line 325: `total_cost = invoiced if invoiced > 0 else receipt_amt`
+- The "Mark up %" column contains the invoiced total in dollars (vendor cost × 1.10), not a percentage
+- Code set both `total_cost` and `invoiced_amount` to the invoiced value, losing the vendor cost
+- Fix: `total_cost = receipt_amt` (vendor cost from "Receipt Amount" column)
+- Effect: Jan 2024 – Sep 2025 POs now correctly show 10% markup instead of 0%
+
+**Bug Fix 19 — New format (.xlsx) double-counting vendor cost:**
+- `read_new_format_purchase()` line 396: `invoiced = total_cost + markup_total`
+- The "Markup Total" column contains the invoiced total (vendor cost × 1.10), not just the markup delta
+- Code added vendor cost + invoiced total = 2.1× vendor cost → appeared as 110% markup
+- Fix: `invoiced = markup_total` (already the full invoiced amount)
+- Effect: Oct–Dec 2025 POs now correctly show 10% markup instead of 110%
+
+**Root cause of "31.8%" figure:**
+- Jan–Sep 2025 (old format): 0% apparent markup (both columns = invoiced)
+- Oct–Dec 2025 (new format): 110% apparent markup (double-counted vendor cost)
+- Blended average ≈ 31.8% — entirely a data parsing artifact
+
+**Actual vs contract markup:**
+| Component | Contract (Amendment) | Broadridge actual | Delta |
+|-----------|---------------------|-------------------|-------|
+| Wastage | +2% on vendor price | Not separately applied | (2%) |
+| Margin | +10% on inventory cost | +10% on vendor price | — |
+| **Effective rate** | **12.2%** | **10.0%** | **-2.2% (favors Apex)** |
+
+**Corrected cost totals (supersedes session 11/12):**
+| Metric | Before fix | After fix |
+|--------|-----------|-----------|
+| Total Purchase Cost (vendor) | $2,116,463 | $1,994,141 |
+| Total Invoiced Amount | $2,211,855 | $2,103,303 |
+| Effective blended markup | Mixed (0%/110%) | ~5.5% (0% pre-2024, 10% post-2024) |
+
+**Key conclusion:** No markup discrepancy to pursue. Broadridge charges 10% margin on vendor price without the additional 2% wastage, resulting in 10% effective markup vs the 12.2% the contract permits. This favors Apex.
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
 - [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)
 - [ ] Verify May-25 752K usage spike

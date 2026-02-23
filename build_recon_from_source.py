@@ -321,9 +321,11 @@ def read_standard_purchase(fp, fn):
             receipt_amt = safe_float(vals[rai]) if rai >= 0 and rai < len(vals) else 0
             mai = hmap.get("Mark up %", hmap.get("Markup", hmap.get("Mark % 1", -1)))
             markup_val = safe_float(vals[mai]) if mai >= 0 and mai < len(vals) else 0
+            # "Mark up %" column contains the invoiced total (vendor cost × 1.10), not a percentage
             invoiced = markup_val if markup_val > 100 else receipt_amt
-            total_cost = invoiced if invoiced > 0 else receipt_amt
-            if total_cost == 0: total_cost = unit_price * qty_raw
+            # total_cost = vendor cost (Receipt Amount), NOT the invoiced amount
+            total_cost = receipt_amt if receipt_amt > 0 else (unit_price * qty_raw)
+            if total_cost == 0: total_cost = invoiced
             poi = hmap.get("PO Number", hmap.get("Order ID", -1))
             po_num = str(vals[poi] or '').strip() if poi >= 0 and poi < len(vals) else ''
             mk = make_month_key(po_date.month, po_date.year)
@@ -393,7 +395,8 @@ def read_new_format_purchase(fp, fn):
             markup_pct = safe_float(vals[mpi]) if mpi >= 0 and mpi < len(vals) else 0
             mti = hmap.get("Markup Total", -1)
             markup_total = safe_float(vals[mti]) if mti >= 0 and mti < len(vals) else 0
-            invoiced = total_cost + markup_total if markup_total > 0 else total_cost * (1 + markup_pct)
+            # "Markup Total" column contains the invoiced total (vendor cost × 1.10), not just the markup delta
+            invoiced = markup_total if markup_total > 0 else total_cost * (1 + markup_pct)
             poi = hmap.get("PO Number", -1)
             po_num = str(vals[poi] or '').strip() if poi >= 0 and poi < len(vals) else ''
             mk = make_month_key(po_date.month, po_date.year)
