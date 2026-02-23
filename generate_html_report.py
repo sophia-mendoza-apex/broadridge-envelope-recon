@@ -46,9 +46,7 @@ def fmt_pct(v):
         val = float(v)
         if val == 0:
             return DASH
-        if abs(val) < 1:
-            return f"{val * 100:.1f}%"
-        return f"{val:.1f}%"
+        return f"{val * 100:.1f}%"
     except (ValueError, TypeError):
         return str(v)
 
@@ -100,6 +98,7 @@ post_mailed = int(post["Envelopes Mailed (Postage)"].sum())
 post_spoils = int(post["Spoils"].sum())
 post_variance = post_purchased - post_used
 post_months = len(post)
+spoilage_rate = post_spoils / post_used * 100 if post_used else 0
 
 # Year-by-year post-settlement
 from collections import defaultdict as _defaultdict
@@ -166,9 +165,9 @@ def find_missing_months():
 missing_months = find_missing_months()
 
 def build_svg_chart():
-    months = monthly["Month"].tolist()
-    purchased = monthly["Envelopes Purchased"].tolist()
-    used = monthly["Envelopes Used (Volume)"].tolist()
+    months = post["Month"].tolist()
+    purchased = post["Envelopes Purchased"].tolist()
+    used = post["Envelopes Used (Volume)"].tolist()
     n = len(months)
     if n == 0:
         return ""
@@ -211,50 +210,45 @@ def build_svg_chart():
     return "\n".join(L)
 
 def build_monthly_rows():
-    """Build monthly rows with annual subtotals after each December and a grand total."""
+    """Build monthly rows (post-settlement scope) with annual subtotals and grand total."""
     rows = []
     running_balance = 0
-    # Year accumulators
-    yr_p = yr_u = yr_m = yr_s = 0
+    yr_p = yr_u = 0
     prev_year = None
 
     def _year_from_label(label):
         return 2000 + int(label.split('-')[1])
 
-    def _subtotal_row(year, yp, yu, ym, ys, rb):
+    def _subtotal_row(year, yp, yu, rb):
         yv = yp - yu
         vc = var_color(yv)
         rbc = var_color(rb)
         vpct = yv / yp if yp else 0
+        yr_label = f"{year} (Mar&ndash;Dec)" if year == 2022 else str(year)
         return (
             '<tr class="subtotal-row">'
-            + f'<td><strong>{year} Total</strong></td>'
+            + f'<td><strong>{yr_label} Total</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
-            + f'<td class="num"><strong>{fmt_num(ym)}</strong></td>'
-            + f'<td class="num"><strong>{fmt_num(ys)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
             + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
             + '</tr>'
         )
 
-    for i, (_, r) in enumerate(monthly.iterrows()):
+    for i, (_, r) in enumerate(post.iterrows()):
         cur_year = _year_from_label(r["Month"])
 
-        # Insert subtotal when year changes (not on the first row)
         if prev_year is not None and cur_year != prev_year:
-            rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_m, yr_s, running_balance))
-            yr_p = yr_u = yr_m = yr_s = 0
+            rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
+            yr_p = yr_u = 0
 
         prev_year = cur_year
         p = safe(r["Envelopes Purchased"])
         u = safe(r["Envelopes Used (Volume)"])
-        m = safe(r["Envelopes Mailed (Postage)"])
-        s = safe(r["Spoils"])
         vv = p - u
         running_balance += vv
-        yr_p += p; yr_u += u; yr_m += m; yr_s += s
+        yr_p += p; yr_u += u
 
         vc = var_color(vv)
         rbc = var_color(running_balance)
@@ -264,8 +258,6 @@ def build_monthly_rows():
             + f'<td>{r["Month"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num">{fmt_num(m)}</td>'
-            + f'<td class="num">{fmt_num(s)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(r["Variance %"])}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
@@ -274,20 +266,18 @@ def build_monthly_rows():
 
     # Final year subtotal
     if prev_year is not None:
-        rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_m, yr_s, running_balance))
+        rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
 
     # Grand total
-    gv = total_purchased - total_used
+    gv = post_purchased - post_used
     vc = var_color(gv)
     rbc = var_color(running_balance)
-    gpct = gv / total_purchased if total_purchased else 0
+    gpct = gv / post_purchased if post_purchased else 0
     rows.append(
         '<tr class="total-row">'
         + f'<td><strong>Grand Total</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(total_purchased)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(total_used)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(total_mailed)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(total_spoils)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
@@ -447,12 +437,12 @@ def build_inventory_gauge():
 
 def build_monthly_usage_trend():
     """SVG sparkline showing rolling 6-month avg usage over time."""
-    n = len(monthly)
+    n = len(post)
     if n < 6:
         return ""
     # Compute 6-month rolling average
-    usage_vals = monthly["Envelopes Used (Volume)"].tolist()
-    labels = monthly["Month"].tolist()
+    usage_vals = post["Envelopes Used (Volume)"].tolist()
+    labels = post["Month"].tolist()
     rolling = []
     for i in range(5, n):
         avg = sum(usage_vals[i-5:i+1]) / 6
@@ -775,7 +765,7 @@ html += '</head>\n<body>\n\n'
 # --- Header ---
 html += '<div class="header">\n'
 html += '    <h1>Broadridge envelope reconciliation</h1>\n'
-html += '    <p class="subtitle">Purchase vs. usage analysis &nbsp;|&nbsp; January 2020 &ndash; December 2025</p>\n'
+html += '    <p class="subtitle">Purchase vs. usage analysis &nbsp;|&nbsp; March 2022 &ndash; December 2025</p>\n'
 html += f'    <p class="generated">Generated {pd.Timestamp.now().strftime("%B %d, %Y")}</p>\n'
 html += '</div>\n'
 
@@ -832,9 +822,16 @@ html += '        </div>\n'
 # -- Post-settlement KPIs (what Apex is paying for — the numbers that matter) --
 html += '        <div class="kpi-grid">\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025 ({post_months} mo)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">{fmt_num(post_mailed)} mailed &middot; {fmt_num(post_spoils)} spoils</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">Spoilage: {spoilage_rate:.1f}% ({fmt_num(post_spoils)} of {fmt_num(post_used)})</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months at current usage</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage)}</p><p class="kpi-sub">Trailing 12 months</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage)}</p><p class="kpi-sub">Trailing 6 months</p></div>\n'
+html += '        </div>\n'
+
+# -- Inventory gauge: actual vs Broadridge 2-3 month policy --
+html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:12px;">\n'
+html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
+html += inventory_gauge + '\n'
+html += f'            <p style="font-size:12px;color:#6D6E71;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage)}/month. Policy range: {fmt_num(avg_monthly_usage*2)} (2-mo) to {fmt_num(avg_monthly_usage*3)} (3-mo).</p>\n'
 html += '        </div>\n'
 
 # -- Key findings (promoted to top) --
@@ -843,6 +840,7 @@ html += '            <ul style="margin:0;padding-left:20px;">\n'
 html += f'            <li>Implied inventory of <strong>{fmt_num(post_variance)}</strong> envelopes = <strong>{buffer_months:.1f} months</strong> of buffer stock at current usage rates (Broadridge policy: 2&ndash;3 months).</li>\n'
 html += f'            <li>Average monthly usage declined <strong>{usage_decline:.0f}%</strong> from {fmt_num(usage_2022)}/mo (2022) to {fmt_num(usage_2025)}/mo (2025), consistent with the 30% print reduction target in the 2022 renewal term sheet.</li>\n'
 html += f'            <li>Purchasing trajectory has corrected: 2022 over-purchased by 20.3% building initial buffer; 2024&ndash;2025 are within 3% of usage.</li>\n'
+html += f'            <li>Reported spoilage: <strong>{fmt_num(post_spoils)}</strong> envelopes ({spoilage_rate:.1f}% of usage) &mdash; well within the 10% contractual wastage limit. Note: actual wastage (10&ndash;15% per Broadridge) is embedded in the &ldquo;Used&rdquo; figure, not separately reported.</li>\n'
 html += '            </ul>\n'
 html += '        </div>\n'
 
@@ -876,10 +874,13 @@ html += '        </table></div>\n'
 
 # -- Full-period context (secondary, not KPI cards) --
 full_var_pct = net_variance / total_purchased * 100 if total_purchased else 0
+pre_purchased = total_purchased - post_purchased
+pre_used = total_used - post_used
 html += f'        <div class="context-line">\n'
-html += f'            <strong>Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
-html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} ({full_var_pct:+.1f}%). '
-html += f'Pre-March 2022 envelope costs were absorbed by Broadridge per the $643,458 pass-through paper dispute settlement (June 2022 renewal term sheet).\n'
+html += f'            <strong>Pre-settlement (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
+html += f'These costs were absorbed by Broadridge per the $643,458 pass-through paper dispute settlement (June 2022 renewal term sheet). '
+html += f'<strong>Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
+html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} ({full_var_pct:+.1f}%).\n'
 html += '        </div>\n'
 
 html += '    </div>\n'
@@ -895,6 +896,13 @@ html += '    <div class="section-body">\n'
 html += '        <div style="background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">\n'
 html += svg_chart
 html += '\n        </div>\n'
+
+# -- Rolling 6-month average usage trend --
+html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:20px;">\n'
+html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Rolling 6-month average usage</p>\n'
+html += usage_trend_svg + '\n'
+html += '        </div>\n'
+
 html += '    </div>\n</div>\n\n'
 
 # ===== PURCHASES & USAGE BY ENVELOPE TYPE =====
@@ -909,6 +917,24 @@ html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
+html += '        <div class="info-box" style="margin-top:16px;"><p><strong>Scope note:</strong> Envelope type breakdown covers the full contract period (Jan 2020 &ndash; Dec 2025) because type-level monthly data is not available in the source. Post-settlement purchases (Mar 2022+) account for ~70% of the totals shown.</p></div>\n'
+
+# -- SKU-level recon (purchased + used + variance + variance %) --
+html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
+html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">ENVCONPFSN10NI was replaced by ENVAPXN10&hellip;IND(10/22) in Oct 2022 (postal permit update). Usage shifted but both SKUs remain in purchase history. See the grouped table above for the combined view.</p>\n'
+html += '        <div class="table-wrap"><table class="sortable">\n'
+html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
+html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
+html += '        </table></div>\n'
+
+# -- Usage by product --
+html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">Usage by product</h3>\n'
+html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">Products map to envelopes: <strong>Monthly Statements / Efail Statements</strong> &rarr; N14 Fold or 9x12 Flat (domestic/foreign). <strong>Address Verification Letters / Apex MTC / Apex Checks / Disbursement Letters</strong> &rarr; #10 Confirms+Letters. <strong>Daily Confirms</strong> &rarr; #10 or 9x12 Flat Confirms. <strong>1099 / 1042 / tax forms</strong> &rarr; Tax Form Envelopes.</p>\n'
+html += '        <div class="table-wrap"><table class="sortable">\n'
+html += '            <thead><tr>' + th_row(["Product Name","Total Used"]) + '<th>% of Total</th></tr></thead>\n'
+html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
+html += '        </table></div>\n'
+
 html += '    </div>\n</div>\n\n'
 
 # ===== MONTHLY DETAIL (collapsed by default) =====
@@ -919,9 +945,10 @@ html += '        <span class="toggle">&#9654;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Mailed","Spoils","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
+html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data). May-25 usage of 752K is 2.3x the trailing average &mdash; verify whether billing data was consolidated from multiple periods.</p>\n'
 html += '    </div>\n</div>\n\n'
 
 # ===== REFERENCE (collapsed by default) =====
@@ -945,20 +972,6 @@ html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; pos
 html += '            <span><strong>DW</strong> = Double Window</span>\n'
 html += '            <span><strong>IND</strong> = Individual (Oct 2022 revision)</span>\n'
 html += '        </div>\n'
-
-# Purchased by SKU
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">Purchased by SKU</h3>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Total Purchased"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + env_type_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-
-# Used by product
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">Used by product</h3>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Product Name","Total Used"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
 
 html += '    </div>\n</div>\n\n'
 

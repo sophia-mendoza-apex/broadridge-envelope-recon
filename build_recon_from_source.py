@@ -39,7 +39,8 @@ def is_envelope(d): return d is not None and "ENV" in str(d).upper()
 
 # Map usage records to canonical envelope types based on Product_Category, Flat_Fold, Address_Type.
 # Mapping source: Brandon Koebel email (Sep 12, 2023) — envelope-to-mail-type assignments.
-def map_usage_to_envelope_type(product_category, flat_fold, address_type):
+# Date-aware: ENVAPXN10 (PFC) replaced ENVCONPFSN10NI for domestic #10 mail in Oct 2022.
+def map_usage_to_envelope_type(product_category, flat_fold, address_type, month_key=""):
     cat = (product_category or '').strip().upper()
     ff = (flat_fold or '').strip().upper()
     at = (address_type or '').strip().upper()
@@ -55,7 +56,12 @@ def map_usage_to_envelope_type(product_category, flat_fold, address_type):
         if is_flat:
             return 'ENVCONRIDGE9X12DW'
         else:
-            return 'ENVCONPFSN10NI' if is_foreign else 'ENVAPXN10 Confirms+Letters (PFC)'
+            if is_foreign:
+                return 'ENVCONPFSN10NI'
+            # Domestic #10: NI before Oct 2022, PFC from Oct 2022 onward
+            if month_key and month_key < '2022-10':
+                return 'ENVCONPFSN10NI'
+            return 'ENVAPXN10 Confirms+Letters (PFC)'
     elif cat == 'TAX DOCUMENT':
         return 'Tax Form Envelopes (1099/1099-R)'
     return '(Unclassified)'
@@ -997,7 +1003,8 @@ def build_output():
         env_type = map_usage_to_envelope_type(
             rec.get("product_category", ""),
             rec.get("flat_fold", ""),
-            rec.get("address_type", "")
+            rec.get("address_type", ""),
+            rec.get("month_key", "")
         )
         usage_by_env_type[env_type] += rec["envelopes"]
     for i, (etype, total_used) in enumerate(sorted(usage_by_env_type.items(), key=lambda x: -x[1]), 2):
