@@ -37,6 +37,29 @@ def is_apex(cn):
     return "APEX" in u or "RIDGE" in u or "PENSON" in u or "PENSION" in u
 def is_envelope(d): return d is not None and "ENV" in str(d).upper()
 
+# Map usage records to canonical envelope types based on Product_Category, Flat_Fold, Address_Type.
+# Mapping source: Brandon Koebel email (Sep 12, 2023) — envelope-to-mail-type assignments.
+def map_usage_to_envelope_type(product_category, flat_fold, address_type):
+    cat = (product_category or '').strip().upper()
+    ff = (flat_fold or '').strip().upper()
+    at = (address_type or '').strip().upper()
+    is_foreign = at == 'FOREIGN'
+    is_flat = ff == 'FLAT'
+
+    if cat == 'STATEMENT':
+        if is_flat:
+            return 'ENVMERIDGE9X12NI11/08' if is_foreign else 'ENVMEAPEX9X12PFC'
+        else:  # FOLD, MIXED, BULK, or blank — default to fold
+            return 'ENVMERIDGEN14NI11/08' if is_foreign else 'ENVMEAPEXN14PFC'
+    elif cat in ('CONFIRM', 'LETTER', 'CHECK'):
+        if is_flat:
+            return 'ENVCONRIDGE9X12DW'
+        else:
+            return 'ENVCONPFSN10NI' if is_foreign else 'ENVAPXN10 Confirms+Letters (PFC)'
+    elif cat == 'TAX DOCUMENT':
+        return 'Tax Form Envelopes (1099/1099-R)'
+    return '(Unclassified)'
+
 # Canonical envelope type mapping — consolidates variant descriptions from different
 # source files (supplier IDs, verbose prefixes, revision dates) into 7 core types
 # plus grouped categories for tax forms and non-Apex envelopes.
@@ -472,12 +495,17 @@ def read_billing_workbook(fp, fn, year_folder):
                     prod_name = str(vals[pn_i] or '').strip() if pn_i >= 0 and pn_i < len(vals) else ''
                     pc_i = header_map.get("Product_Category", header_map.get("Product Category", -1))
                     prod_cat = str(vals[pc_i] or '').strip() if pc_i >= 0 and pc_i < len(vals) else ''
+                    ff_i = header_map.get("Flat_Fold", -1)
+                    flat_fold = str(vals[ff_i] or '').strip() if ff_i >= 0 and ff_i < len(vals) else ''
+                    at_i = header_map.get("Address_Type", -1)
+                    addr_type = str(vals[at_i] or '').strip() if at_i >= 0 and at_i < len(vals) else ''
                     mk = make_month_key(bm, by)
                     volume_records.append({
                         "month_key": mk, "billing_month": bm, "billing_year": by,
                         "client": client, "envelopes": envelopes, "images": 0,
                         "sheets": 0, "product_name": prod_name,
-                        "product_category": prod_cat, "source_file": fn
+                        "product_category": prod_cat, "flat_fold": flat_fold,
+                        "address_type": addr_type, "source_file": fn
                     })
 
         # Read Postage Data (handle "Postage Data", "Postage", etc.)
@@ -958,6 +986,27 @@ def build_output():
             cell.border = thin_border
             if c == 2: cell.number_format = num_fmt_int
     auto_width(ws3b)
+
+    # === TAB 3c: Usage by Envelope Type ===
+    ws3c = wb.create_sheet("Usage by Envelope Type")
+    headers3c = ["Envelope Type", "Total Envelopes Used"]
+    style_header(ws3c, headers3c)
+    usage_by_env_type = defaultdict(int)
+    for rec in volume_records:
+        if rec["month_key"] < START_MONTH_KEY: continue
+        env_type = map_usage_to_envelope_type(
+            rec.get("product_category", ""),
+            rec.get("flat_fold", ""),
+            rec.get("address_type", "")
+        )
+        usage_by_env_type[env_type] += rec["envelopes"]
+    for i, (etype, total_used) in enumerate(sorted(usage_by_env_type.items(), key=lambda x: -x[1]), 2):
+        row_data = [etype, total_used]
+        for c, val in enumerate(row_data, 1):
+            cell = ws3c.cell(row=i, column=c, value=val)
+            cell.border = thin_border
+            if c == 2: cell.number_format = num_fmt_int
+    auto_width(ws3c)
 
     # === TAB 4: Purchase Detail ===
     ws4 = wb.create_sheet("Purchase Detail")

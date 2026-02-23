@@ -14,6 +14,7 @@ HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
 by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
 usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
+usage_by_env_type = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
 
 print("Data loaded successfully.")
 
@@ -81,6 +82,40 @@ usage_product_total = usage_by_product["Total Envelopes Used"].sum()
 
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
+
+# Build combined envelope group table — groups related purchase SKUs and usage types
+# by physical envelope shape/size (not postage imprint) for meaningful comparison.
+ENVELOPE_GROUPS = [
+    {
+        "label": "N14 Fold Statements",
+        "purchase_types": ["ENVMEAPEXN14PFC", "ENVMERIDGEN14NI11/08"],
+        "usage_types": ["ENVMEAPEXN14PFC", "ENVMERIDGEN14NI11/08"],
+    },
+    {
+        "label": "9x12 Flat Statements",
+        "purchase_types": ["ENVMEAPEX9X12PFC", "ENVMERIDGE9X12NI11/08"],
+        "usage_types": ["ENVMEAPEX9X12PFC", "ENVMERIDGE9X12NI11/08"],
+    },
+    {
+        "label": "#10 Confirms + Letters",
+        "purchase_types": ["ENVAPXN10 Confirms+Letters (PFC)", "ENVCONPFSN10NI"],
+        "usage_types": ["ENVAPXN10 Confirms+Letters (PFC)", "ENVCONPFSN10NI"],
+    },
+    {
+        "label": "9x12 Flat Confirms",
+        "purchase_types": ["ENVCONRIDGE9X12DW"],
+        "usage_types": ["ENVCONRIDGE9X12DW"],
+    },
+    {
+        "label": "Tax Form Envelopes",
+        "purchase_types": ["Tax Form Envelopes (1099/1099-R)", "Tax Form Envelopes (1042/IRA)"],
+        "usage_types": ["Tax Form Envelopes (1099/1099-R)"],
+    },
+]
+
+# Build lookup dicts
+purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))
+usage_by_type_dict = dict(zip(usage_by_env_type["Envelope Type"], usage_by_env_type["Total Envelopes Used"]))
 
 # Check for missing months (shown as alert banner if any gaps exist)
 def find_missing_months():
@@ -239,6 +274,41 @@ def build_env_type_rows():
         )
     return "\n".join(rows)
 
+def build_combined_env_rows():
+    rows = []
+    grand_p = grand_u = 0
+    for g in ENVELOPE_GROUPS:
+        p = sum(safe(purchase_by_type.get(t, 0)) for t in g["purchase_types"])
+        u = sum(safe(usage_by_type_dict.get(t, 0)) for t in g["usage_types"])
+        v = p - u
+        grand_p += p
+        grand_u += u
+        vc = var_color(v)
+        vpct = v / p if p else 0
+        rows.append(
+            '<tr>'
+            + f'<td class="env-name">{g["label"]}</td>'
+            + f'<td class="num">{fmt_num(p)}</td>'
+            + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
+            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+            + '</tr>'
+        )
+    # Grand total
+    gv = grand_p - grand_u
+    gvc = var_color(gv)
+    gpct = gv / grand_p if grand_p else 0
+    rows.append(
+        '<tr class="total-row">'
+        + f'<td><strong>Total</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
+        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
+        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
+        + '</tr>'
+    )
+    return "\n".join(rows)
+
 def build_usage_by_product_rows():
     rows = []
     for _, r in usage_by_product_sorted.iterrows():
@@ -257,6 +327,7 @@ def build_usage_by_product_rows():
 svg_chart = build_svg_chart()
 monthly_rows = build_monthly_rows()
 env_type_rows = build_env_type_rows()
+combined_env_rows = build_combined_env_rows()
 usage_product_rows = build_usage_by_product_rows()
 
 kpi_var_color = "#9D1526" if net_variance < 0 else "#186741"
@@ -319,6 +390,12 @@ body {
 }
 .alert-box p { margin: 0; font-size: 13px; color: #333; }
 .alert-box strong { color: #FC5E17; }
+.info-box {
+    background: rgba(41, 84, 240, 0.05); border-left: 4px solid #2954F0;
+    border-radius: 0 8px 8px 0; padding: 16px 24px; margin-top: 20px;
+}
+.info-box p { margin: 0; font-size: 13px; color: #333; line-height: 1.6; }
+.info-box strong { color: #052390; }
 .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; background: #FFFFFF; }
 table th {
@@ -469,6 +546,12 @@ html += f'            <div class="kpi-card"><p class="kpi-label">Variance %</p><
 
 html += '        </div>\n'
 
+html += '        <div class="info-box">\n'
+html += '            <p><strong>Pass-through paper dispute settlement (June 2022):</strong> '
+html += 'As part of the Proxy &amp; BPS early renewal term sheet, Broadridge agreed to internalize $643,458 in accumulated paper and envelope costs prior to March 1, 2022. '
+html += 'Apex began paying for paper and envelopes per contract terms effective March 1, 2022.</p>\n'
+html += '        </div>\n'
+
 html += '    </div>\n'
 html += '</div>\n\n'
 
@@ -497,16 +580,21 @@ html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '    </div>\n</div>\n\n'
 
-# Envelope Types (purchases + usage side by side)
+# Envelope Types (combined purchased vs used)
 html += '<div class="section" id="envelope-types">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Purchases &amp; usage breakdown</h2>\n'
+html += '        <h2>Purchases &amp; usage by envelope type</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <div style="display:flex;gap:24px;flex-wrap:wrap;">\n'
+html += '        <div class="table-wrap"><table class="sortable">\n'
+html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
+html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
+html += '        </table></div>\n'
+html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
+html += '        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:24px;">\n'
 html += '            <div style="flex:1 1 400px;">\n'
-html += '                <h3 style="color:#052390;font-size:15px;margin:0 0 12px;">Purchased by envelope type</h3>\n'
+html += '                <h3 style="color:#052390;font-size:15px;margin:0 0 12px;">Purchased by SKU</h3>\n'
 html += '                <div class="table-wrap"><table class="sortable">\n'
 html += '                    <thead><tr>' + th_row(["Envelope Type","Total Purchased"]) + '<th>% of Total</th></tr></thead>\n'
 html += '                    <tbody>\n' + env_type_rows + '\n                    </tbody>\n'
