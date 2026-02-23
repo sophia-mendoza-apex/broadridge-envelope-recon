@@ -618,3 +618,59 @@ The user questioned why the running balance shows negative inventory for 10 mont
 - [ ] Consider drafting formal letter to Broadridge re: contract variance and inventory management concerns
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
 - [ ] Investigate why implied inventory (5.3 months) exceeds Broadridge's stated 2-3 month buffer policy
+
+### 2026-02-23 (session 10)
+
+**Accomplished:**
+- CEO-lens review of HTML report — identified flow, relevance, and readability issues
+- Restructured entire HTML report for executive readability
+- Added inventory gauge, SKU recon table, and usage trend sparkline (in progress — interrupted mid-edit)
+- Changed avg monthly usage from trailing 12 months to trailing 6 months (rolling average for ongoing recon)
+
+**Report restructure (completed):**
+- Added **Bottom Line** callout at top of Executive Summary — data-driven recommendation adapts based on buffer stock level
+- Promoted post-settlement KPIs to primary position (Mar 2022–Dec 2025 = what Apex pays for)
+- Promoted key findings bullets immediately after KPIs
+- Demoted full-period (Jan 2020–Dec 2025) numbers from 4 KPI cards to a single gray context line
+- Consolidated settlement info into the context line (not a separate callout)
+- Simplified year-by-year table from 7 columns to 6 (dropped redundant "Avg Mo Purchased")
+- Monthly Detail now **collapsed by default** (click or nav link to expand)
+- Reference section (envelope specs, SKU detail, product detail) now **collapsed by default**
+- Nav links auto-expand collapsed sections when clicked
+- Print media query expands all collapsed sections
+
+**New features added (partially integrated — need HTML template wiring):**
+- `build_inventory_gauge()` — SVG horizontal gauge comparing actual inventory vs Broadridge 2-3 month policy range (amber/green/red zones with blue marker for actual)
+- `build_sku_recon_rows()` — Full SKU-level recon table showing purchased + used + variance + variance % for each envelope type (replaces purchase-only table)
+- `build_monthly_usage_trend()` — SVG sparkline showing rolling 6-month average usage over time with start/end labels
+
+**Still needs completion (interrupted mid-edit):**
+- [ ] Wire inventory gauge SVG into Executive Summary HTML (after KPI cards, before key findings)
+- [ ] Wire SKU recon table into By Type section (replace simple "Purchased by SKU" table)
+- [ ] Wire usage trend sparkline into Monthly Trend or Executive Summary
+- [ ] Move "Used by product" table back to main By Type section
+- [ ] Update KPI sub-text from "Trailing 12 months" to "Trailing 6 months"
+- [ ] Regenerate HTML report with all new visuals
+- [ ] Update Reference section to contain only envelope specs
+
+**Current report structure (as committed):**
+1. Executive Summary (bottom line + 4 post-settlement KPI cards + key findings + year-by-year table + full-period context line)
+2. Monthly Trend (SVG bar chart)
+3. Purchases & Usage by Envelope Type (combined groups table only)
+4. Monthly Detail (collapsed by default)
+5. Reference (collapsed by default — specs + SKU + product)
+
+**How to resume:**
+The Python functions `build_inventory_gauge()`, `build_sku_recon_rows()`, and `build_monthly_usage_trend()` are built and their outputs are computed in variables `inventory_gauge`, `sku_recon_rows`, and `usage_trend_svg`. They just need to be wired into the HTML template section of `generate_html_report.py`:
+1. Add `inventory_gauge` to Executive Summary after the KPI grid
+2. Replace the simple `env_type_rows` table in By Type section with `sku_recon_rows`
+3. Add `usage_trend_svg` as a visual
+4. Move `usage_product_rows` table back to By Type section
+5. Update Reference to only keep envelope specs
+6. Run `py -3 generate_html_report.py` to regenerate
+
+**Next Steps:**
+- [ ] Complete HTML template wiring (see above)
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Clarify markup structure discrepancy between 2020-2024 and 2025
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory
