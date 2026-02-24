@@ -1077,6 +1077,50 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory and wastage discrepancy
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory, wastage discrepancy, and billing basis
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 16)
+
+**Accomplished:**
+- Investigated billing basis discrepancy — contract says generic stock billed "based on usage," but D17 invoices match purchase report totals exactly (receipt-based billing)
+- Added billing discrepancy computation to `generate_html_report.py`: usage-based vs receipt-based cost comparison
+- Added billing basis discrepancy callout to Executive Summary (red-bordered, same style as wastage callout)
+- Updated Reference summary table: "Billing Basis" column now shows `Usage (actual: receipt)` in red
+- Added recommendation #4: "Demand usage-based billing per contract Section 4"
+- Regenerated HTML report
+
+**Billing basis discrepancy (key finding):**
+| Metric | Value |
+|--------|-------|
+| Actual invoiced (receipt-based) | $1,575,143 |
+| If billed on usage (contract terms) | $1,382,771 |
+| Excess charged to Apex | **$192,372** |
+| Zero-purchase/non-zero-usage months | 2 |
+
+**Evidence:**
+- D17 invoice "ICS ENVELOPE CHARGES" line items match purchase report invoiced totals exactly
+- Correlation: invoiced vs purchased r=0.94, invoiced vs used r=0.65
+- 2 months with zero purchases but 250K+ usage showed $0 billed — under usage-based billing, charges would be spread across all consumption months
+- Both original contract (Section 4) and Amendment No. 1 explicitly state: "For generic stock, the unit rate will be billed based on usage"
+
+**Interaction with wastage discrepancy:**
+- Wastage markup (5%/2%) was designed for usage-based billing — adds wastage to the per-unit rate applied to usage volume
+- Under receipt-based billing, Apex already pays for all purchased envelopes upfront (including those consumed as waste)
+- Applying a wastage charge on top of receipt-based billing is potential double-counting
+
+**Commits this session:**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+
+**Report structure (current):**
+1. Executive Summary (bottom line, 4 recommendations, KPIs, gauge, wastage callout, **billing basis callout**, year-by-year with cost, 2026 projection, pre-settlement context)
+2. Buffer Stock by Envelope Type (overstock callout, per-SKU table, NI/PFC context)
+3. Monthly Detail (interactive, collapsed, filterable by SKU with combined groups)
+4. Reference (contract terms, Denci/Koebel wastage quotes, summary table with billing basis flags, envelope specs)
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
