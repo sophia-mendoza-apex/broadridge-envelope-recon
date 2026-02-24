@@ -1007,8 +1007,76 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
 ```
 
-**Next Steps:**
+**Next Steps (superseded by session 15):**
+- [x] ~~Consider drafting formal letter to Broadridge re: excess inventory~~ — wastage discrepancy analysis added to report
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 15)
+
+**Accomplished:**
+- Converted both reports (internal + Broadridge-facing) to dark theme
+- Added print-safe `@media print` overrides (reverts to light theme for paper/PDF)
+- Added cost analysis: Total Invoiced KPI, Invoiced/Unit Cost columns in year-by-year table
+- Added 2026 forward projection: projected usage, projected cost, vs 2022, buffer coverage months
+- Added structured recommendations: 3 numbered action items with dollar impact
+- Added wastage discrepancy callout: Broadridge admits 10-15% actual vs 5%/2% contract limit
+- Added Denci (Aug 2023) and Koebel (Sep-Nov 2022) wastage email quotes to Reference section
+- Fixed interchangeable NI/PFC action logic: PFC shows "Covered by NI stock" when combined inventory is adequate
+- Fixed deficit label: "Covered by prior stock" replaces misleading "No action needed"
+- Removed ~200 lines of dead code (6 unused functions and their variables)
+
+**Dark theme color palette:**
+| Element | Light (old) | Dark (new) |
+|---------|-------------|------------|
+| Body bg | #FAFAFA | #131416 |
+| Card/surface | #FFFFFF | #1E1F23 |
+| Surface alt/zebra | #F5F5F7 | #252629 |
+| Border | #E2E2E2 | #3A3B40 |
+| Text primary | #333 | #E0E1E6 |
+| Text secondary | #6D6E71 | #9A9BA0 |
+| Positive (green) | #186741 | #4CAF79 |
+| Negative (red) | #9D1526 | #EF5350 |
+| Brand accent | #052390 | #82B4FF (headings), #5B9BF7 (accents) |
+
+**Wastage discrepancy analysis (key finding):**
+| Metric | Value |
+|--------|-------|
+| Contract max wastage (5%/2%) | 690,735 envelopes |
+| Actual wastage at 10% (Broadridge low) | 1,846,995 envelopes |
+| Actual wastage at 15% (Broadridge high) | 2,770,492 envelopes |
+| Excess beyond contract (10%) | ~1.2M envelopes (~$81K) |
+| Excess beyond contract (15%) | ~2.1M envelopes (~$146K) |
+
+**Cost analysis added:**
+| Metric | Value |
+|--------|-------|
+| Total Invoiced (post-settlement) | $1,575,143 |
+| Total Vendor Cost | $1,472,241 |
+| Avg Unit Cost (vendor) | $0.0700 |
+| 2022 Invoiced | $393,552 |
+| 2025 Invoiced | $309,049 |
+| Projected 2026 Invoiced | ~$380,368 |
+
+**Report structure (current):**
+1. Executive Summary (bottom line, recommendations, KPIs, gauge, wastage callout, year-by-year with cost, 2026 projection, pre-settlement context)
+2. Buffer Stock by Envelope Type (overstock callout, per-SKU table, NI/PFC context)
+3. Monthly Detail (interactive, collapsed, filterable by SKU with combined groups)
+4. Reference (contract terms, Denci/Koebel wastage quotes, envelope specs)
+
+**Commits this session:**
+- `b740798` — feat: Dark theme, cost analysis, wastage discrepancy, recommendations, dead code cleanup
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory and wastage discrepancy
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
