@@ -1310,6 +1310,8 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - `1726ee4` — fix: Add wastage columns to By Type and By SKU tables
 - `c8909bb` — docs: Update CLAUDE.md with session 16 part 5
 - `177e772` — fix: Remove client-specific stock language from Denci quote
+- `2b4f695` — docs: Update CLAUDE.md — Denci quote fix
+- `f00a106` — fix: Remove Denci quote entirely from Broadridge report
 
 **How to refresh outputs:**
 ```bash
