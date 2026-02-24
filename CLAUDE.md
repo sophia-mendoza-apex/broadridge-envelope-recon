@@ -1326,3 +1326,49 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 17)
+
+**Accomplished:**
+- Added Wastage % column to all tables in Broadridge report (year-by-year, monthly detail, by type, by SKU)
+- Spot-checked 3 months (Oct 2022, Jun 2023, Mar 2025) end-to-end from raw Broadridge source files to output Excel — **all matched exactly, zero discrepancies**
+- Analyzed "generic stock" classification using envelope spec PDFs from Products and Envelope Samples directory
+- Added "Generic stock classification" section to Reference in both internal and Broadridge reports
+
+**Spot-check results (3 months, 21 aggregate data points, 12 PO line items verified):**
+| Month | Purchased | Used | Cost | Invoiced | POs | Result |
+|-------|-----------|------|------|----------|-----|--------|
+| Oct 2022 | 1,104,000 | 553,676 | $73,518 | $73,518 | 4 | Exact match |
+| Jun 2023 | 507,000 | 434,409 | $39,205 | $41,958 | 4 | Exact match |
+| Mar 2025 | 378,000 | 248,903 | $37,727 | $41,499 | 4 | Exact match |
+
+**Generic stock analysis:**
+- All 7 Apex envelope types are standard double-window envelopes with no company logos, branding, or custom design
+- PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding
+- NI (No Imprint) envelopes are completely blank — usable by any Broadridge client
+- All use 24WW paper, black ink, crosshatch/wood grain security tint
+- Supplier: United Envelope LLC, Mt. Pocono, PA
+- Classification as generic stock confirms: usage-based billing and lower wastage rate (5%/2%) apply per contract
+
+**Confidence assessment:**
+- Overall totals (Purchased/Used): ~95% confidence — cross-validated against Broadridge consolidated file, spot-checked 3 months, 14 bug fixes applied
+- Per-SKU breakdown: ~75% confidence — depends on mapping assumptions for MIXED/blank Flat_Fold records
+- Pre-2022 data: medium risk — files from email attachments, some without Client column
+- Post-settlement totals are the strongest part of the analysis
+
+**Commits this session:**
+- `36d7d5b` — feat: Add Wastage % column and generic stock classification to both reports
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Review Broadridge report in Outlook inbox; decide if ready to send
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
