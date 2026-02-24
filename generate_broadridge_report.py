@@ -209,94 +209,6 @@ ENVELOPE_GROUPS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Monthly detail rows (post-settlement) with annual subtotals and grand total
-# ---------------------------------------------------------------------------
-def build_monthly_rows():
-    rows = []
-    running_balance = 0
-    yr_p = yr_u = yr_w = 0
-    prev_year = None
-
-    def _year_from_label(label):
-        return 2000 + int(label.split('-')[1])
-
-    def _subtotal_row(year, yp, yu, yw, rb):
-        yau = yu + yw
-        yv = yp - yau
-        vc = var_color(yv)
-        rbc = var_color(rb)
-        vpct = yv / yp if yp else 0
-        yr_label = f"{year} (Mar&ndash;Dec)" if year == 2022 else str(year)
-        return (
-            '<tr class="subtotal-row">'
-            + f'<td><strong>{yr_label} Total</strong></td>'
-            + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
-            + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
-            + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(yw)}</strong></td>'
-            + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_pct(yw / yu if yu else 0)}</strong></td>'
-            + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
-            + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
-            + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
-            + '</tr>'
-        )
-
-    for i, (_, r) in enumerate(post.iterrows()):
-        cur_year = _year_from_label(r["Month"])
-
-        if prev_year is not None and cur_year != prev_year:
-            rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
-            yr_p = yr_u = yr_w = 0
-
-        prev_year = cur_year
-        p = safe(r["Envelopes Purchased"])
-        u = safe(r["Envelopes Used (Volume)"])
-        w_rate = get_wastage_rate(r["Month"])
-        w = int(u * w_rate)
-        vv = p - u - w
-        running_balance += vv
-        yr_p += p; yr_u += u; yr_w += w
-
-        vc = var_color(vv)
-        rbc = var_color(running_balance)
-        vpct = vv / p if p else 0
-        bg = "#252629" if i % 2 == 1 else "#1E1F23"
-        rows.append(
-            f'<tr style="background:{bg}">'
-            + f'<td>{r["Month"]}</td>'
-            + f'<td class="num">{fmt_num(p)}</td>'
-            + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_pct(w / u if u else 0)}</td>'
-            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
-            + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
-            + '</tr>'
-        )
-
-    # Final year subtotal
-    if prev_year is not None:
-        rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
-
-    # Grand total
-    gv = post_purchased - post_adj_used
-    vc = var_color(gv)
-    rbc = var_color(running_balance)
-    gpct = gv / post_purchased if post_purchased else 0
-    rows.append(
-        '<tr class="total-row">'
-        + f'<td><strong>Grand Total</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(post_wastage)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_pct(post_wastage / post_used if post_used else 0)}</strong></td>'
-        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
-        + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
-        + '</tr>'
-    )
-    return "\n".join(rows)
-
-# ---------------------------------------------------------------------------
 # Combined envelope group rows (purchased + used + variance)
 # ---------------------------------------------------------------------------
 def build_combined_env_rows():
@@ -306,6 +218,8 @@ def build_combined_env_rows():
         p = sum(safe(purchase_by_type.get(t, 0)) for t in g["purchase_types"])
         u = sum(safe(usage_by_type_dict.get(t, 0)) for t in g["usage_types"])
         w = sum(safe(wastage_by_type_dict.get(t, 0)) for t in g["usage_types"])
+        if p == 0 and u <= 1:
+            continue
         au = u + w
         v = p - au
         grand_p += p
@@ -397,7 +311,6 @@ def build_sku_recon_rows():
 # ---------------------------------------------------------------------------
 # Build all data components
 # ---------------------------------------------------------------------------
-monthly_rows = build_monthly_rows()
 combined_env_rows = build_combined_env_rows()
 sku_recon_rows = build_sku_recon_rows()
 
@@ -610,7 +523,7 @@ html += '</div>\n'
 # --- Nav ---
 html += '<nav class="nav">\n'
 html += '    <a href="#summary">Summary</a>\n'
-html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
+html += '    <a href="#review">Items for Review</a>\n'
 html += '    <a href="#envelope-types">By Type</a>\n'
 html += '    <a href="#reference">Reference</a>\n'
 html += '</nav>\n'
@@ -623,6 +536,7 @@ html += '        <h2>Summary</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
+html += '        <p style="font-size:14px;color:#E0E1E6;margin:0 0 20px;line-height:1.6;">This report presents Apex&rsquo;s reconciliation of envelope purchases versus usage across 46 months of post-settlement activity. We are sharing this for Broadridge&rsquo;s review and validation.</p>\n'
 
 # KPI cards
 html += '        <div class="kpi-grid">\n'
@@ -666,8 +580,19 @@ html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td></tr>\
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 
+html += '    </div>\n'
+html += '</div>\n\n'
+
+# ===== SECTION 2: ITEMS FOR REVIEW =====
+html += '<div class="section" id="review">\n'
+html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '        <h2>Items for review</h2>\n'
+html += '        <span class="toggle">&#9660;</span>\n'
+html += '    </div>\n'
+html += '    <div class="section-body">\n'
+
 # Wastage observation
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:16px;border:1px solid #2A2B30;">\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
 html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Wastage &mdash; contractual vs. operational</p>\n'
 html += f'            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) '
 html += f'and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Broadridge has separately confirmed that actual operational wastage runs 10&ndash;15%.</p>\n'
@@ -684,43 +609,10 @@ html += '            </table>\n'
 html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>\n'
 html += '        </div>\n'
 
-# Broadridge confirmation — wastage rates (Denci + Koebel emails)
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Broadridge confirmation &mdash; wastage rates</p>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
-html += '                &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>\n'
-html += '                &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)\n'
-html += '            </blockquote>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
-html += '        </div>\n'
-
-# Pre-settlement context
-html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
-html += f'            <strong style="color:#E0E1E6;">Pre-settlement context (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
-html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. '
-html += f'<strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
-html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} variance.\n'
-html += '        </div>\n'
-
 html += '    </div>\n'
 html += '</div>\n\n'
 
-# ===== SECTION 2: MONTHLY DETAIL (expanded by default) =====
-html += '<div class="section" id="monthly-detail">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Monthly detail</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Wastage","Wastage %","Adj. Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Wastage applied at contractual maximum: <strong>5%</strong> (original contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Adj. Variance = Purchased &minus; Used &minus; Wastage. Running Balance = cumulative adjusted variance.</p>\n'
-html += '    </div>\n</div>\n\n'
-
-# ===== SECTION 4: PURCHASES & USAGE BY ENVELOPE TYPE =====
+# ===== SECTION 3: PURCHASES & USAGE BY ENVELOPE TYPE =====
 html += '<div class="section" id="envelope-types">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
 html += '        <h2>Purchases &amp; usage by envelope type</h2>\n'
@@ -732,6 +624,7 @@ html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
+html += '        <p style="font-size:12px;color:#9A9BA0;margin:4px 0 0;"><strong style="color:#E0E1E6;">9x12 Flat Confirms:</strong> The deficit reflects a temporary production surge in mid-2022 (Ridge/Penson migration) when Broadridge routed a portion of confirms through flat production. Pre-existing buffer stock covered the shortfall. This category represents 0.7% of total volume.</p>\n'
 
 # NI/PFC transition context
 html += '        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
@@ -807,6 +700,26 @@ html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash
 html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
+
+# Broadridge confirmation — wastage rates (Koebel emails)
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Broadridge confirmation &mdash; operational wastage rates</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>\n'
+html += '                &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)\n'
+html += '            </blockquote>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
+html += '        </div>\n'
+
+# Pre-settlement context
+html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-bottom:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
+html += f'            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Pre-settlement context</p>\n'
+html += f'            <strong style="color:#E0E1E6;">Jan 2020 &ndash; Feb 2022:</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
+html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. '
+html += f'<strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
+html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} variance.\n'
+html += '        </div>\n'
 
 # Generic stock classification
 html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Generic stock classification</h3>\n'
