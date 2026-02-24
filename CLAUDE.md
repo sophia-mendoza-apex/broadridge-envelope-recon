@@ -882,5 +882,50 @@ Outside those 4 months, FLAT confirms average ~350/month.
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
-- [ ] Verify May-25 752K usage spike
+- [x] ~~Verify May-25 752K usage spike~~ — Resolved in session 13 (triple-counted billing data)
+- [ ] Request actual Jun-20 purchase report from Broadridge
+
+### 2026-02-23 (session 13 — part 3)
+
+**Accomplished:**
+- Investigated May-25 752K usage spike — confirmed as **triple-counted billing data**
+- Three files in 2025 folder (`5 Apex May-22 Billing.xlsx`, `Updated V2`, `Updated V3`) all contained identical May 2025 data (195 APEX records, 250,802 envelopes each); 250,802 × 3 = 752,406 exact match
+- Added `peek_billing_month()` function that reads the actual billing month from inside each file before dedup, replacing unreliable filename-based month parsing
+- Discovered and recovered **Nov 2023 data** that was being incorrectly skipped — `Apex Billing November.xlsx` in the 2024 folder contains Nov 2023 data (misfiled), not a duplicate of `Apex November Billing.xlsx` (Nov 2024)
+- Also correctly deduplicates `Apex Sept Billing Sheet Revised.xlsx` (identical to non-revised version, Sep 2024)
+
+**Bug Fix 20 — Triple-counted May 2025 billing:**
+- Three versions of the May 2025 billing file existed with different filenames
+- No dedup logic existed for multiple non-master files covering the same billing month
+- Added data-aware dedup: `peek_billing_month()` reads the first APEX record's Billing_Month/Billing_Year, groups files by actual billing month, keeps only the last file alphabetically per month
+- Result: May-25 usage corrected from 752,406 to 250,802
+
+**Bug Fix 21 — Nov 2023 data incorrectly skipped:**
+- Initial filename-based dedup grouped `Apex Billing November.xlsx` (Nov 2023) with `Apex November Billing.xlsx` (Nov 2024) because both filenames contain "november"
+- Data-aware dedup correctly identifies them as different months and processes both
+- Result: Nov-23 usage recovered (326,113 envelopes, 396K purchased)
+
+**Corrected totals (supersedes all prior sessions):**
+| Metric | Value |
+|--------|-------|
+| Reconciliation Period | Jan 2020 – Dec 2025 |
+| Purchase files processed | 63 |
+| Billing files processed | 50 |
+| Total Purchased | 30,065,500 |
+| Total Used (Volume) | 26,373,417 |
+| Net Variance | +3,692,083 (+12.3%) |
+| Total Purchase Cost (vendor) | $1,994,141 |
+| Total Invoiced Amount | $2,103,303 |
+
+**All data quality issues resolved:**
+| Issue | Status |
+|-------|--------|
+| 2025 markup discrepancy (31.8%) | Fixed — two parsing bugs; actual markup 10% |
+| ENVCONRIDGE9X12DW deficit (-148%) | Explained — 2022 production surge, buffer stock |
+| May-25 752K usage spike | Fixed — triple-counted billing file |
+| Nov-23 missing data | Fixed — misfiled in 2024 folder, recovered |
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory
 - [ ] Request actual Jun-20 purchase report from Broadridge

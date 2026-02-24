@@ -582,6 +582,39 @@ def is_billing_duplicate(fn):
     if "billing master" in fl: return True
     return False
 
+def peek_billing_month(fp):
+    """Read the actual billing month from inside a billing workbook (first APEX record)."""
+    try:
+        wb = open_workbook(fp)
+        sheet_lookup = {sn.strip().lower(): sn for sn in wb.sheetnames}
+        for candidate in ["volume data", "volume"]:
+            if candidate not in sheet_lookup: continue
+            ws = wb[sheet_lookup[candidate]]
+            header_map = None
+            for row in ws.iter_rows(values_only=True):
+                vals = list(row)
+                if any(str(v).strip() in ('Client_Name', 'Client Name') for v in vals if v):
+                    header_map = {str(v).strip(): i for i, v in enumerate(vals) if v}
+                    continue
+                if header_map is None: continue
+                cn_i = header_map.get('Client_Name', header_map.get('Client Name', -1))
+                if cn_i < 0 or cn_i >= len(vals): continue
+                client = str(vals[cn_i] or '').upper()
+                if 'APEX' not in client and 'RIDGE' not in client: continue
+                bm_i = header_map.get('Billing_Month', -1)
+                by_i = header_map.get('Billing_Year', -1)
+                if bm_i < 0 or by_i < 0: break
+                bm = safe_int(vals[bm_i])
+                by = safe_int(vals[by_i])
+                if bm > 0 and by > 0:
+                    wb.close()
+                    return f"{by:04d}-{bm:02d}"
+            break
+        wb.close()
+    except:
+        pass
+    return None
+
 def parse_billing_month_from_filename(fn, year_folder):
     fl = fn.lower()
     m = re.match(r'^(\d{1,2})\s', fn)
@@ -615,14 +648,37 @@ def process_all_billing_workbooks():
             else:
                 non_master_files.append(fn)
 
-        # Find which months are covered by non-master files
-        covered_months = set()
+        # Deduplicate non-master files by ACTUAL billing month (read from file data).
+        # Files can be misfiled (e.g., Nov 2023 data in 2024 folder), so filename-based
+        # month parsing is unreliable. When multiple files share the same actual billing
+        # month, keep the last one alphabetically (most recent version).
+        month_to_files = defaultdict(list)
         for fn in non_master_files:
+            fp = os.path.join(yr_path, fn)
+            actual_month = peek_billing_month(fp)
+            if actual_month is None:
+                # Fallback to filename if file can't be peeked
+                mo, yr = parse_billing_month_from_filename(fn, yr_folder)
+                actual_month = f"{yr:04d}-{mo:02d}" if mo else fn
+            month_to_files[actual_month].append(fn)
+        deduped_non_master = []
+        for key, fns in month_to_files.items():
+            if len(fns) > 1:
+                kept = fns[-1]  # last alphabetically = latest version
+                skipped = fns[:-1]
+                for s in skipped:
+                    data_quality_issues.append(("Billing", s, f"Skipped (superseded by {kept})"))
+            else:
+                kept = fns[0]
+            deduped_non_master.append(kept)
+
+        covered_months = set()
+        for fn in deduped_non_master:
             mo, _ = parse_billing_month_from_filename(fn, yr_folder)
             if mo: covered_months.add(mo)
 
-        # Process non-master files first
-        for fn in non_master_files:
+        # Process non-master files (one per month)
+        for fn in deduped_non_master:
             fp = os.path.join(yr_path, fn)
             read_billing_workbook(fp, fn, yr_folder)
 
