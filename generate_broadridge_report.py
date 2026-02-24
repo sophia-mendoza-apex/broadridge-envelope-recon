@@ -164,8 +164,16 @@ by_type = by_type_monthly[post_type_mask].groupby("Envelope Type", as_index=Fals
 by_type.rename(columns={"Purchased": "Total Purchased"}, inplace=True)
 
 post_usage_type_mask = usage_by_env_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
-usage_by_env_type = usage_by_env_type_monthly[post_usage_type_mask].groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
+post_usage_type_monthly = usage_by_env_type_monthly[post_usage_type_mask]
+usage_by_env_type = post_usage_type_monthly.groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
 usage_by_env_type.rename(columns={"Envelopes Used": "Total Envelopes Used"}, inplace=True)
+
+# Wastage by envelope type (apply per-month rate to each type's monthly usage)
+wastage_by_type_dict = {}
+for _, r in post_usage_type_monthly.iterrows():
+    t = r["Envelope Type"]
+    w = int(safe(r["Envelopes Used"]) * get_wastage_rate(r["Month"]))
+    wastage_by_type_dict[t] = wastage_by_type_dict.get(t, 0) + w
 
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
@@ -290,13 +298,16 @@ def build_monthly_rows():
 # ---------------------------------------------------------------------------
 def build_combined_env_rows():
     rows = []
-    grand_p = grand_u = 0
+    grand_p = grand_u = grand_w = 0
     for g in ENVELOPE_GROUPS:
         p = sum(safe(purchase_by_type.get(t, 0)) for t in g["purchase_types"])
         u = sum(safe(usage_by_type_dict.get(t, 0)) for t in g["usage_types"])
-        v = p - u
+        w = sum(safe(wastage_by_type_dict.get(t, 0)) for t in g["usage_types"])
+        au = u + w
+        v = p - au
         grand_p += p
         grand_u += u
+        grand_w += w
         vc = var_color(v)
         vpct = v / p if p else 0
         rows.append(
@@ -304,11 +315,13 @@ def build_combined_env_rows():
             + f'<td class="env-name">{g["label"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + '</tr>'
         )
-    gv = grand_p - grand_u
+    gau = grand_u + grand_w
+    gv = grand_p - gau
     gvc = var_color(gv)
     gpct = gv / grand_p if grand_p else 0
     rows.append(
@@ -316,6 +329,7 @@ def build_combined_env_rows():
         + f'<td><strong>Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
+        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(grand_w)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + '</tr>'
@@ -331,15 +345,18 @@ def build_sku_recon_rows():
         key=lambda t: -(safe(purchase_by_type.get(t, 0)) + safe(usage_by_type_dict.get(t, 0)))
     )
     rows = []
-    grand_p = grand_u = 0
+    grand_p = grand_u = grand_w = 0
     for t in all_types:
         p = safe(purchase_by_type.get(t, 0))
         u = safe(usage_by_type_dict.get(t, 0))
+        w = safe(wastage_by_type_dict.get(t, 0))
         if p == 0 and u == 0:
             continue
-        v = p - u
+        au = u + w
+        v = p - au
         grand_p += p
         grand_u += u
+        grand_w += w
         vc = var_color(v)
         vpct = v / p if p else 0
         rows.append(
@@ -347,11 +364,13 @@ def build_sku_recon_rows():
             + f'<td class="env-name">{t}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + '</tr>'
         )
-    gv = grand_p - grand_u
+    gau = grand_u + grand_w
+    gv = grand_p - gau
     gvc = var_color(gv)
     gpct = gv / grand_p if grand_p else 0
     rows.append(
@@ -359,6 +378,7 @@ def build_sku_recon_rows():
         + f'<td><strong>Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
+        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(grand_w)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + '</tr>'
@@ -701,7 +721,7 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Wastage","Adj. Variance","Variance %"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
@@ -717,7 +737,7 @@ html += '        </div>\n'
 # SKU-level breakdown
 html += '        <h3 style="color:#82B4FF;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Wastage","Adj. Variance","Variance %"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 
