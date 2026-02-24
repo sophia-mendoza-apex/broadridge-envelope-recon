@@ -1119,12 +1119,6 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 3. Monthly Detail (interactive, collapsed, filterable by SKU with combined groups)
 4. Reference (contract terms, Denci/Koebel wastage quotes, summary table with billing basis flags, envelope specs)
 
-**Next Steps:**
-- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
-- [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
-- [ ] Request actual Jun-20 purchase report from Broadridge
-- [ ] Send Broadridge report to Broadridge contacts for data validation
-
 ### 2026-02-24 (session 16 continued)
 
 **Accomplished:**
@@ -1172,7 +1166,46 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
 ```
 
+### 2026-02-24 (session 16 — part 2)
+
+**Accomplished:**
+- Removed client filter row from Broadridge report data sources table (revealed internal filtering logic for APEX/Ridge/Penson vs excluded clients)
+- Removed Monthly Trend section (SVG bar chart) and `build_svg_chart()` function from Broadridge report — streamlines the report for external review
+- Updated section numbering and nav links
+- Conducted security review of Broadridge report for sharing risks
+- Report regenerated (67.1KB → 51.4KB)
+
+**Security review — 5 potential items identified:**
+1. **Settlement dollar amount ($643,458)** — Broadridge already knows this, but signals depth of Apex documentation
+2. **Deduplication methodology** — gives Broadridge a roadmap to challenge reconciliation approach
+3. **Supplementary source reference** — reveals a data gap (Jun 2020) that Apex had to fill from consolidated file
+4. **$192,372 billing excess** — puts a specific credit demand on the table; diplomatic framing mitigates
+5. **"Broadridge has separately confirmed" wastage** — references emails without naming individuals
+
+**Conclusion:** Nothing leaks truly sensitive Apex internal data. The most aggressive element is the $192K billing excess figure, but it's framed diplomatically as "for discussion." User has not yet decided whether to soften or remove any items.
+
+**Broadridge report structure (current — no Monthly Trend):**
+1. Summary (4 KPIs + year-by-year with wastage & invoiced + billing basis box + wastage observation + pre-settlement context)
+2. Monthly Detail (7 columns: Month, Purchased, Used, Wastage, Adj. Variance, Var%, Running Balance)
+3. Purchases & Usage by Envelope Type (grouped table + NI/PFC transition context + SKU breakdown)
+4. Reference (data sources & methodology + contract terms Section 4 & 8 + contract summary table + envelope specs)
+
+**Commits this session (all):**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+- `857d3ab` — docs: Update CLAUDE.md with session 16
+- `d03fc54` — feat: Align Broadridge report with internal — full scope reconciliation
+- `4fb0be5` — docs: Update CLAUDE.md and regenerated Broadridge HTML with session 16 continued
+- `7451ee3` — fix: Remove client filter and monthly trend from Broadridge report
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
 **Next Steps:**
+- [ ] Decide whether to soften/remove any of the 5 risk items before sending to Broadridge
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
