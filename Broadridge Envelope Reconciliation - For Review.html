@@ -5,113 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Envelope Reconciliation — For Review</title>
 <style>*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
 body {
     margin: 0; padding: 0;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 14px; line-height: 1.5; color: #E0E1E6; background: #131416;
+    font-size: 12px; line-height: 1.5; color: #333; background: #FFFFFF;
 }
 .header {
-    background: linear-gradient(135deg, #0A1A4A, #1A3A8F);
-    color: #FFFFFF; padding: 48px 40px 40px;
+    background: linear-gradient(135deg, #052390, #1A3A8F);
+    color: #FFFFFF; padding: 40px 40px 32px;
 }
-.header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
-.header .subtitle { font-size: 16px; opacity: 0.85; margin: 0 0 4px; }
-.header .from-line { font-size: 14px; opacity: 0.75; margin: 0 0 4px; }
-.header .generated { font-size: 13px; opacity: 0.65; margin: 0; }
-.nav {
-    position: sticky; top: 0; z-index: 100;
-    background: #1E1F23; border-bottom: 2px solid #3A3B40;
-    padding: 0 40px; display: flex; gap: 0; overflow-x: auto;
-}
-.nav a {
-    color: #5B9BF7; text-decoration: none; font-size: 13px; font-weight: 500;
-    padding: 12px 16px; white-space: nowrap;
-    border-bottom: 3px solid transparent; transition: border-color 0.2s, color 0.2s;
-}
-.nav a:hover { color: #82B4FF; border-bottom-color: #5B9BF7; }
-.content { max-width: 1340px; margin: 0 auto; padding: 32px 40px 60px; }
-.section { margin-bottom: 40px; }
-.section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; user-select: none; margin-bottom: 16px;
-}
-.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #82B4FF; }
-.section-header .toggle {
-    font-size: 18px; color: #9A9BA0; width: 28px; height: 28px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%; transition: background 0.2s;
-}
-.section-header:hover .toggle { background: #2A2B30; }
-.section-body { transition: max-height 0.3s ease; overflow: hidden; }
-.section-body.collapsed { max-height: 0 !important; overflow: hidden; }
-.kpi-grid { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
+.header h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.header .subtitle { font-size: 14px; opacity: 0.85; margin: 0 0 4px; }
+.header .from-line { font-size: 13px; opacity: 0.75; margin: 0 0 4px; }
+.header .generated { font-size: 12px; opacity: 0.65; margin: 0; }
+.content { max-width: 1100px; margin: 0 auto; padding: 28px 40px 40px; }
+.section { margin-bottom: 32px; page-break-inside: avoid; }
+.section-header { margin-bottom: 14px; }
+.section-header h2 { margin: 0; font-size: 18px; font-weight: 600; color: #052390; border-bottom: 2px solid #052390; padding-bottom: 6px; }
+.kpi-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 10px; }
 .kpi-card {
-    flex: 1 1 200px; background: #1E1F23; border-radius: 12px; padding: 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
-    min-width: 190px; border: 1px solid #2A2B30;
+    flex: 1 1 180px; background: #F5F5F7; border-radius: 8px; padding: 18px 20px;
+    min-width: 170px; border: 1px solid #E2E2E2;
 }
 .kpi-card .kpi-label {
-    font-size: 12px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #9A9BA0; margin: 0 0 8px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #6D6E71; margin: 0 0 6px;
 }
-.kpi-card .kpi-value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
-.kpi-card .kpi-sub { font-size: 12px; color: #9A9BA0; margin: 6px 0 0; }
-.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #1E1F23; }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; margin: 0; line-height: 1.2; }
+.kpi-card .kpi-sub { font-size: 11px; color: #6D6E71; margin: 4px 0 0; }
+.table-wrap { border-radius: 4px; border: 1px solid #E2E2E2; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; background: #FFFFFF; }
 table th {
-    background: #0A1A4A; color: #FFFFFF; padding: 10px 14px; text-align: left;
-    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
-    cursor: pointer; white-space: nowrap; user-select: none;
+    background: #052390; color: #FFFFFF; padding: 8px 12px; text-align: left;
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+    white-space: nowrap;
 }
-table th:hover { background: #1A3A8F; }
-table th .sort-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
-table td { padding: 8px 14px; border-bottom: 1px solid #2A2B30; white-space: nowrap; color: #E0E1E6; }
+table td { padding: 6px 12px; border-bottom: 1px solid #E2E2E2; white-space: nowrap; color: #333; }
 table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
-table tbody tr:hover { background: #1A2A3D !important; }
-.subtotal-row { background: #252830 !important; border-top: 2px solid #3A3D48; }
-.total-row { background: #2A2D35 !important; border-top: 2px solid #3A3D48; }
-.bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
-.bar-fill {
-    height: 18px; background: linear-gradient(90deg, #2954F0, #5B9BF7);
-    border-radius: 9px; min-width: 3px;
-}
-.bar-label { font-size: 12px; font-weight: 500; color: #9A9BA0; white-space: nowrap; }
-.flag-under {
-    background: #1A3A2A; color: #4CAF79; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
-.flag-ok {
-    background: #252629; color: #9A9BA0; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
+.subtotal-row { background: #F0F0F5 !important; border-top: 2px solid #D0D0D8; }
+.total-row { background: #E8E8ED !important; border-top: 2px solid #D0D0D8; }
+table tbody tr:nth-child(even) { background: #FAFAFA; }
 .footer {
-    text-align: center; padding: 32px 40px; font-size: 12px;
-    color: #9A9BA0; border-top: 1px solid #2A2B30;
+    text-align: center; padding: 24px 40px; font-size: 11px;
+    color: #6D6E71; border-top: 1px solid #E2E2E2;
 }
 @media print {
-    .nav { display: none; }
-    .section-header .toggle { display: none; }
-    .section-body.collapsed { max-height: none !important; }
-    body { background: #FFFFFF !important; color: #333 !important; font-size: 11px; }
-    .kpi-card, .bottom-line, .info-box, .context-line, .table-wrap { background: #FFFFFF !important; border-color: #E2E2E2 !important; box-shadow: none !important; }
-    .bottom-line p, .info-box p, .kpi-card .kpi-sub { color: #333 !important; }
-    .bottom-line .bl-heading, .kpi-card .kpi-label, .section-header h2 { color: #052390 !important; }
-    table { background: #FFFFFF !important; }
-    table td { color: #333 !important; border-bottom-color: #E2E2E2 !important; }
-    table th { background: #052390 !important; }
-    .subtotal-row { background: #F0F0F5 !important; }
-    .total-row { background: #F5F5F7 !important; }
-    .context-line { background: #F5F5F7 !important; }
-    .footer { color: #6D6E71 !important; border-top-color: #E2E2E2 !important; }
-}
-@media (max-width: 768px) {
-    .header { padding: 32px 20px 28px; }
-    .header h1 { font-size: 24px; }
-    .content { padding: 20px; }
-    .nav { padding: 0 16px; }
-    .kpi-card .kpi-value { font-size: 22px; }
+    .header { padding: 28px 0 20px; }
+    .content { padding: 16px 0 20px; }
+    .section { page-break-inside: avoid; margin-bottom: 20px; }
+    .kpi-card { box-shadow: none; }
+    .table-wrap { box-shadow: none; border: 1px solid #CCC; }
 }
 </style>
 </head>
@@ -123,135 +67,143 @@ table tbody tr:hover { background: #1A2A3D !important; }
     <p class="from-line">From: Apex Clearing Corporation</p>
     <p class="generated">Generated February 24, 2026</p>
 </div>
-<nav class="nav">
-    <a href="#summary">Summary</a>
-    <a href="#review">Items for Review</a>
-    <a href="#envelope-types">By Type</a>
-    <a href="#reference">Reference</a>
-</nav>
 <div class="content">
 <div class="section" id="summary">
-    <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-header">
         <h2>Summary</h2>
-        <span class="toggle">&#9660;</span>
     </div>
     <div class="section-body">
-        <p style="font-size:14px;color:#E0E1E6;margin:0 0 20px;line-height:1.6;">This report presents Apex&rsquo;s reconciliation of envelope purchases versus usage across 46 months of post-settlement activity. We are sharing this for Broadridge&rsquo;s review and validation.</p>
+        <p style="font-size:13px;color:#333;margin:0 0 18px;line-height:1.6;">This report presents Apex&rsquo;s reconciliation of envelope purchases versus usage across 46 months of post-settlement activity. We are sharing this for Broadridge&rsquo;s review and validation.</p>
         <div class="kpi-grid">
-            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#5B9BF7">21,039,500</p><p class="kpi-sub">Total envelopes ordered</p></div>
-            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#5B9BF7">19,160,662</p><p class="kpi-sub">18,469,949 used + 690,713 wastage (contract max)</p></div>
-            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:#4CAF79">1,878,838</p><p class="kpi-sub">8.9% of purchased</p></div>
-            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#5B9BF7">46</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>
+            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#052390">21,039,500</p><p class="kpi-sub">Total envelopes ordered</p></div>
+            <div class="kpi-card"><p class="kpi-label">Used + Wastage (Est.)</p><p class="kpi-value" style="color:#052390">19,160,662</p><p class="kpi-sub">18,469,949 used + 690,713 est. wastage</p></div>
+            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:#4CAF79">1,878,838</p><p class="kpi-sub">6.6 months of buffer stock</p></div>
+            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#052390">46</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>
         </div>
+        <p style="font-size:10px;color:#6D6E71;margin:6px 0 4px;line-height:1.5;"><strong>Wastage (Est.)</strong> = contractual maximum wastage allowance per Section 4: 5% of usage (Jan 2019&ndash;Dec 2023) and 2% of usage (Jan 2024+). Actual operational wastage may differ. See <em>Items for Review</em>.</p>
+        <p style="font-size:10px;color:#6D6E71;margin:0 0 12px;line-height:1.5;"><strong>Buffer (Mo.)</strong> = Adj. Variance &divide; Avg Monthly Usage, where Adj. Variance = Purchased &minus; Used &minus; Wastage (Est.), and Avg Monthly Usage = trailing 12-month average (captures full seasonal cycle including quarter-end and year-end peaks). Year rows use that year&rsquo;s own month count and usage. Broadridge&rsquo;s stated policy is 2&ndash;3 months of supply (Brandon Koebel, Nov 2022).</p>
         <div class="table-wrap" style="margin-top:20px;"><table>
-            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Wastage</th><th>Wastage %</th><th>Adj. Variance</th><th>Var %</th><th>Invoiced</th></tr></thead>
+            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Wastage (Est.)</th><th>Wastage %</th><th>Adj. Variance</th><th>Buffer (Mo.)</th><th>Invoiced</th></tr></thead>
             <tbody>
-            <tr><td>2022 (Mar&ndash;Dec)</td><td class="num">5,807,000</td><td class="num">4,629,923</td><td class="num" style="color:#9A9BA0;">231,490</td><td class="num" style="color:#9A9BA0;">5.0%</td><td class="num" style="color:#4CAF79;font-weight:600">945,587</td><td class="num" style="color:#4CAF79">16.3%</td><td class="num">$393,552</td></tr>
-            <tr><td>2023</td><td class="num">6,571,000</td><td class="num">6,081,272</td><td class="num" style="color:#9A9BA0;">304,059</td><td class="num" style="color:#9A9BA0;">5.0%</td><td class="num" style="color:#4CAF79;font-weight:600">185,669</td><td class="num" style="color:#4CAF79">2.8%</td><td class="num">$511,019</td></tr>
-            <tr><td>2024</td><td class="num">4,621,000</td><td class="num">4,348,349</td><td class="num" style="color:#9A9BA0;">86,961</td><td class="num" style="color:#9A9BA0;">2.0%</td><td class="num" style="color:#4CAF79;font-weight:600">185,690</td><td class="num" style="color:#4CAF79">4.0%</td><td class="num">$361,523</td></tr>
-            <tr><td>2025</td><td class="num">4,040,500</td><td class="num">3,410,405</td><td class="num" style="color:#9A9BA0;">68,203</td><td class="num" style="color:#9A9BA0;">2.0%</td><td class="num" style="color:#4CAF79;font-weight:600">561,892</td><td class="num" style="color:#4CAF79">13.9%</td><td class="num">$309,049</td></tr>
-            <tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,949</strong></td><td class="num" style="color:#9A9BA0;"><strong>690,713</strong></td><td class="num" style="color:#9A9BA0;"><strong>3.7%</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>1,878,838</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>8.9%</strong></td><td class="num"><strong>$1,575,143</strong></td></tr>
+            <tr><td>2022 (Mar&ndash;Dec)</td><td class="num">5,807,000</td><td class="num">4,629,923</td><td class="num" style="color:#6D6E71;">231,490</td><td class="num" style="color:#6D6E71;">5.0%</td><td class="num" style="color:#186741;font-weight:600">945,587</td><td class="num" style="color:#186741;font-weight:600">2.0</td><td class="num">$393,552</td></tr>
+            <tr><td>2023</td><td class="num">6,571,000</td><td class="num">6,081,272</td><td class="num" style="color:#6D6E71;">304,059</td><td class="num" style="color:#6D6E71;">5.0%</td><td class="num" style="color:#186741;font-weight:600">185,669</td><td class="num" style="color:#186741;font-weight:600">0.4</td><td class="num">$511,019</td></tr>
+            <tr><td>2024</td><td class="num">4,621,000</td><td class="num">4,348,349</td><td class="num" style="color:#6D6E71;">86,961</td><td class="num" style="color:#6D6E71;">2.0%</td><td class="num" style="color:#186741;font-weight:600">185,690</td><td class="num" style="color:#186741;font-weight:600">0.5</td><td class="num">$361,523</td></tr>
+            <tr><td>2025</td><td class="num">4,040,500</td><td class="num">3,410,405</td><td class="num" style="color:#6D6E71;">68,203</td><td class="num" style="color:#6D6E71;">2.0%</td><td class="num" style="color:#186741;font-weight:600">561,892</td><td class="num" style="color:#186741;font-weight:600">2.0</td><td class="num">$309,049</td></tr>
+            <tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,949</strong></td><td class="num" style="color:#6D6E71;"><strong>690,713</strong></td><td class="num" style="color:#6D6E71;"><strong>3.7%</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>1,878,838</strong></td><td class="num" style="color:#B8860B;font-weight:700"><strong>4.7</strong></td><td class="num"><strong>$1,575,143</strong></td></tr>
             </tbody>
         </table></div>
     </div>
 </div>
 
 <div class="section" id="review">
-    <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-header">
         <h2>Items for review</h2>
-        <span class="toggle">&#9660;</span>
     </div>
     <div class="section-body">
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Wastage &mdash; contractual vs. operational</p>
-            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Broadridge has separately confirmed that actual operational wastage runs 10&ndash;15%.</p>
-            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Contract max wastage (5%/2% blended)</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">690,734 envelopes</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 10%</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">1,846,994 envelopes</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 15%</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">2,770,492 envelopes</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Excess beyond contract allowance</td><td style="border:none;padding:4px 0;color:#82B4FF;font-weight:600;">1,156,260&ndash;2,079,758 envelopes</td></tr>
+        <div style="background:#F5F5F7;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:1px solid #E2E2E2;">
+            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Wastage &mdash; contractual vs. operational</p>
+            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Broadridge has separately confirmed that actual operational wastage runs 10&ndash;15%.</p>
+            <table style="margin-top:8px;width:auto;background:transparent;font-size:12px;">
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Contract max wastage (5%/2% blended)</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">690,734 envelopes</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Operational wastage at 10%</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">1,846,994 envelopes</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Operational wastage at 15%</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">2,770,492 envelopes</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Excess beyond contract allowance</td><td style="border:none;padding:4px 0;color:#052390;font-weight:600;">1,156,260&ndash;2,079,758 envelopes</td></tr>
             </table>
-            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>
+            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>
+        </div>
+        <div style="background:#F5F5F7;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:1px solid #E2E2E2;">
+            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Excess inventory</p>
+            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">After accounting for contractual wastage, post-settlement purchases exceed adjusted usage by <strong>1,878,838 envelopes</strong>. At the trailing 12-month average usage of 284,200/month, this represents approximately <strong>6.6 months</strong> of buffer stock.</p>
+            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">Broadridge has stated a policy of maintaining 2&ndash;3 months of envelope supply (Brandon Koebel, Nov 2022). Section 8 requires Broadridge to be &ldquo;responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes.&rdquo;</p>
+            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">We would like to understand the current inventory position and whether ordering volumes are being adjusted to align with declining usage trends.</p>
+        </div>
+        <div style="background:#FFFFFF;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:2px solid #052390;">
+            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 12px;">Outstanding items for Broadridge confirmation</p>
+            <ol style="font-size:12px;line-height:1.8;color:#333;margin:0;padding-left:20px;">
+                <li><strong>Data validation:</strong> Please review the purchased and used totals in this report and confirm they align with Broadridge&rsquo;s records.</li>
+                <li><strong>Wastage rate applied:</strong> What wastage rate is currently being applied to envelope charges? The contract specifies 5% (original) / 2% (amendment) for generic envelope stock. Operational wastage has been confirmed at 10&ndash;15% &mdash; please clarify whether the invoiced rate reflects the contractual rate or the operational rate.</li>
+                <li><strong>Unit rate breakdown:</strong> Please provide a sample breakdown of the invoiced unit rate for envelopes showing the vendor price, wastage component, and margin (if applicable) for a recent month.</li>
+                <li><strong>Inventory position:</strong> Please provide the current envelope inventory levels and confirm whether ordering volumes are being adjusted to reflect the decline in average monthly usage.</li>
+            </ol>
         </div>
     </div>
 </div>
 
 <div class="section" id="envelope-types">
-    <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-header">
         <h2>Purchases &amp; usage by envelope type</h2>
-        <span class="toggle">&#9660;</span>
     </div>
     <div class="section-body">
-        <div class="table-wrap"><table class="sortable">
-            <thead><tr><th onclick="sortTable(this,0)">Envelope Type <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,1)">Purchased <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,2)">Used <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,3)">Wastage <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,4)">Wastage % <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,5)">Adj. Variance <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,6)">Variance % <span class="sort-arrow">&#9650;&#9660;</span></th></tr></thead>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Envelope Type</th><th>Purchased</th><th>Used</th><th>Wastage (Est.)</th><th>Wastage %</th><th>Adj. Variance</th><th>Buffer (Mo.)</th></tr></thead>
             <tbody>
-<tr><td class="env-name">N14 Fold Statements</td><td class="num">7,578,000</td><td class="num">6,863,721</td><td class="num" style="color:#9A9BA0;">258,322</td><td class="num" style="color:#9A9BA0;">3.8%</td><td class="num" style="color:#4CAF79;font-weight:600">455,957</td><td class="num" style="color:#4CAF79">6.0%</td></tr>
-<tr><td class="env-name">9x12 Flat Statements</td><td class="num">457,500</td><td class="num">354,063</td><td class="num" style="color:#9A9BA0;">13,256</td><td class="num" style="color:#9A9BA0;">3.7%</td><td class="num" style="color:#4CAF79;font-weight:600">90,181</td><td class="num" style="color:#4CAF79">19.7%</td></tr>
-<tr><td class="env-name">#10 Confirms + Letters</td><td class="num">12,964,000</td><td class="num">11,084,563</td><td class="num" style="color:#9A9BA0;">410,936</td><td class="num" style="color:#9A9BA0;">3.7%</td><td class="num" style="color:#4CAF79;font-weight:600">1,468,501</td><td class="num" style="color:#4CAF79">11.3%</td></tr>
-<tr><td class="env-name">9x12 Flat Confirms</td><td class="num">40,000</td><td class="num">167,601</td><td class="num" style="color:#9A9BA0;">8,089</td><td class="num" style="color:#9A9BA0;">4.8%</td><td class="num" style="color:#EF5350;font-weight:600">(135,690)</td><td class="num" style="color:#EF5350">-339.2%</td></tr>
-<tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,948</strong></td><td class="num" style="color:#9A9BA0;"><strong>690,603</strong></td><td class="num" style="color:#9A9BA0;"><strong>3.7%</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>1,878,949</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>8.9%</strong></td></tr>
+<tr><td class="env-name">N14 Fold Statements</td><td class="num">7,578,000</td><td class="num">6,863,721</td><td class="num" style="color:#6D6E71;">258,322</td><td class="num" style="color:#6D6E71;">3.8%</td><td class="num" style="color:#186741;font-weight:600">455,957</td><td class="num" style="color:#B8860B;font-weight:600">5.2</td></tr>
+<tr><td class="env-name">9x12 Flat Statements</td><td class="num">457,500</td><td class="num">354,063</td><td class="num" style="color:#6D6E71;">13,256</td><td class="num" style="color:#6D6E71;">3.7%</td><td class="num" style="color:#186741;font-weight:600">90,181</td><td class="num" style="color:#B8860B;font-weight:600">19.2</td></tr>
+<tr><td class="env-name">#10 Confirms + Letters</td><td class="num">12,964,000</td><td class="num">11,084,563</td><td class="num" style="color:#6D6E71;">410,936</td><td class="num" style="color:#6D6E71;">3.7%</td><td class="num" style="color:#186741;font-weight:600">1,468,501</td><td class="num" style="color:#B8860B;font-weight:600">7.6</td></tr>
+<tr><td class="env-name">9x12 Flat Confirms</td><td class="num">40,000</td><td class="num">167,601</td><td class="num" style="color:#6D6E71;">8,089</td><td class="num" style="color:#6D6E71;">4.8%</td><td class="num" style="color:#9D1526;font-weight:600">(135,690)</td><td class="num" style="color:#9D1526;font-weight:600">(330.3)</td></tr>
+<tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,948</strong></td><td class="num" style="color:#6D6E71;"><strong>690,603</strong></td><td class="num" style="color:#6D6E71;"><strong>3.7%</strong></td><td class="num" style="color:#186741;font-weight:700"><strong>1,878,949</strong></td><td class="num" style="color:#B8860B;font-weight:700"><strong>6.6</strong></td></tr>
             </tbody>
         </table></div>
-        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>
-        <p style="font-size:12px;color:#9A9BA0;margin:4px 0 0;"><strong style="color:#E0E1E6;">9x12 Flat Confirms:</strong> The deficit reflects a temporary production surge in mid-2022 (Ridge/Penson migration) when Broadridge routed a portion of confirms through flat production. Pre-existing buffer stock covered the shortfall. This category represents 0.7% of total volume.</p>
-        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;line-height:1.7;color:#E0E1E6;">
-            <p style="font-weight:700;color:#82B4FF;margin:0 0 8px;">NI / PFC transition (Oct 2022)</p>
-            <p style="margin:0 0 8px;"><strong>Before Oct 2022:</strong> All #10 fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI (No Imprint).</p>
-            <p style="margin:0 0 8px;"><strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22) (Pre-Sorted First-Class); foreign mail remained on ENVCONPFSN10NI at ~8,000/month.</p>
+        <p style="font-size:11px;color:#6D6E71;margin:10px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>
+        <p style="font-size:11px;color:#6D6E71;margin:4px 0 0;"><strong style="color:#333;">Wastage % by type:</strong> The per-type wastage rate reflects each SKU&rsquo;s blend of pre-2024 usage (5% contract rate) and post-2024 usage (2% amended rate). SKUs with usage concentrated before 2024 show rates closer to 5%; those with more recent usage trend toward 2%. The overall blended rate across all types is 3.7%.</p>
+        <p style="font-size:11px;color:#6D6E71;margin:4px 0 0;"><strong style="color:#333;">9x12 Flat Confirms:</strong> The deficit reflects a temporary production surge in mid-2022 (Ridge/Penson migration) when Broadridge routed a portion of confirms through flat production. Pre-existing buffer stock covered the shortfall. This category represents 0.7% of total volume.</p>
+        <div style="background:#F5F5F7;border-radius:8px;padding:14px 20px;margin-top:14px;border:1px solid #E2E2E2;font-size:12px;line-height:1.7;color:#333;">
+            <p style="font-weight:700;color:#052390;margin:0 0 6px;">NI / PFC transition (Oct 2022)</p>
+            <p style="margin:0 0 6px;"><strong>Before Oct 2022:</strong> All #10 fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI (No Imprint).</p>
+            <p style="margin:0 0 6px;"><strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22) (Pre-Sorted First-Class); foreign mail remained on ENVCONPFSN10NI at ~8,000/month.</p>
             <p style="margin:0;">The same transition applies to N14 statements (PFC for domestic, NI for foreign) and 9x12 flats. NI and PFC versions are physically interchangeable &mdash; NI envelopes can be used for domestic mail by adding indicia at time of mailing.</p>
         </div>
-        <h3 style="color:#82B4FF;font-size:16px;margin:32px 0 12px;">By SKU</h3>
-        <div class="table-wrap"><table class="sortable">
-            <thead><tr><th onclick="sortTable(this,0)">SKU <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,1)">Purchased <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,2)">Used <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,3)">Wastage <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,4)">Wastage % <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,5)">Adj. Variance <span class="sort-arrow">&#9650;&#9660;</span></th><th onclick="sortTable(this,6)">Variance % <span class="sort-arrow">&#9650;&#9660;</span></th></tr></thead>
+        <h3 style="color:#052390;font-size:14px;margin:24px 0 10px;">By SKU</h3>
+        <div class="table-wrap"><table>
+            <thead><tr><th>SKU</th><th>Purchased</th><th>Used</th><th>Wastage (Est.)</th><th>Wastage %</th><th>Adj. Variance</th><th>Buffer (Mo.)</th></tr></thead>
             <tbody>
-<tr><td class="env-name">ENVAPXN10 Confirms+Letters (PFC)</td><td class="num">9,342,000</td><td class="num">9,017,683</td><td class="num" style="color:#9A9BA0;">313,419</td><td class="num" style="color:#9A9BA0;">3.5%</td><td class="num" style="color:#4CAF79;font-weight:600">10,898</td><td class="num" style="color:#4CAF79">0.1%</td></tr>
-<tr><td class="env-name">ENVMEAPEXN14PFC</td><td class="num">7,090,000</td><td class="num">6,644,806</td><td class="num" style="color:#9A9BA0;">251,993</td><td class="num" style="color:#9A9BA0;">3.8%</td><td class="num" style="color:#4CAF79;font-weight:600">193,201</td><td class="num" style="color:#4CAF79">2.7%</td></tr>
-<tr><td class="env-name">ENVCONPFSN10NI</td><td class="num">3,622,000</td><td class="num">2,066,880</td><td class="num" style="color:#9A9BA0;">97,517</td><td class="num" style="color:#9A9BA0;">4.7%</td><td class="num" style="color:#4CAF79;font-weight:600">1,457,603</td><td class="num" style="color:#4CAF79">40.2%</td></tr>
-<tr><td class="env-name">ENVMEAPEX9X12PFC</td><td class="num">412,500</td><td class="num">345,498</td><td class="num" style="color:#9A9BA0;">13,002</td><td class="num" style="color:#9A9BA0;">3.8%</td><td class="num" style="color:#4CAF79;font-weight:600">54,000</td><td class="num" style="color:#4CAF79">13.1%</td></tr>
-<tr><td class="env-name">ENVMERIDGEN14NI11/08</td><td class="num">488,000</td><td class="num">218,915</td><td class="num" style="color:#9A9BA0;">6,329</td><td class="num" style="color:#9A9BA0;">2.9%</td><td class="num" style="color:#4CAF79;font-weight:600">262,756</td><td class="num" style="color:#4CAF79">53.8%</td></tr>
-<tr><td class="env-name">ENVCONRIDGE9X12DW</td><td class="num">40,000</td><td class="num">167,601</td><td class="num" style="color:#9A9BA0;">8,089</td><td class="num" style="color:#9A9BA0;">4.8%</td><td class="num" style="color:#EF5350;font-weight:600">(135,690)</td><td class="num" style="color:#EF5350">-339.2%</td></tr>
-<tr><td class="env-name">ENVMERIDGE9X12NI11/08</td><td class="num">45,000</td><td class="num">8,565</td><td class="num" style="color:#9A9BA0;">254</td><td class="num" style="color:#9A9BA0;">3.0%</td><td class="num" style="color:#4CAF79;font-weight:600">36,181</td><td class="num" style="color:#4CAF79">80.4%</td></tr>
-<tr><td class="env-name">Tax Form Envelopes (1099/1099-R)</td><td class="num">0</td><td class="num">1</td><td class="num" style="color:#9A9BA0;">0</td><td class="num" style="color:#9A9BA0;">—</td><td class="num" style="color:#EF5350;font-weight:600">(1)</td><td class="num" style="color:#EF5350">—</td></tr>
-<tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,949</strong></td><td class="num" style="color:#9A9BA0;"><strong>690,603</strong></td><td class="num" style="color:#9A9BA0;"><strong>3.7%</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>1,878,948</strong></td><td class="num" style="color:#4CAF79;font-weight:700"><strong>8.9%</strong></td></tr>
+<tr><td class="env-name">ENVAPXN10 Confirms+Letters (PFC)</td><td class="num">9,342,000</td><td class="num">9,017,683</td><td class="num" style="color:#6D6E71;">313,419</td><td class="num" style="color:#6D6E71;">3.5%</td><td class="num" style="color:#186741;font-weight:600">10,898</td><td class="num" style="color:#186741;font-weight:600">0.1</td></tr>
+<tr><td class="env-name">ENVMEAPEXN14PFC</td><td class="num">7,090,000</td><td class="num">6,644,806</td><td class="num" style="color:#6D6E71;">251,993</td><td class="num" style="color:#6D6E71;">3.8%</td><td class="num" style="color:#186741;font-weight:600">193,201</td><td class="num" style="color:#186741;font-weight:600">2.4</td></tr>
+<tr><td class="env-name">ENVCONPFSN10NI</td><td class="num">3,622,000</td><td class="num">2,066,880</td><td class="num" style="color:#6D6E71;">97,517</td><td class="num" style="color:#6D6E71;">4.7%</td><td class="num" style="color:#186741;font-weight:600">1,457,603</td><td class="num" style="color:#B8860B;font-weight:600">148.2</td></tr>
+<tr><td class="env-name">ENVMEAPEX9X12PFC</td><td class="num">412,500</td><td class="num">345,498</td><td class="num" style="color:#6D6E71;">13,002</td><td class="num" style="color:#6D6E71;">3.8%</td><td class="num" style="color:#186741;font-weight:600">54,000</td><td class="num" style="color:#B8860B;font-weight:600">12.1</td></tr>
+<tr><td class="env-name">ENVMERIDGEN14NI11/08</td><td class="num">488,000</td><td class="num">218,915</td><td class="num" style="color:#6D6E71;">6,329</td><td class="num" style="color:#6D6E71;">2.9%</td><td class="num" style="color:#186741;font-weight:600">262,756</td><td class="num" style="color:#B8860B;font-weight:600">45.2</td></tr>
+<tr><td class="env-name">ENVCONRIDGE9X12DW</td><td class="num">40,000</td><td class="num">167,601</td><td class="num" style="color:#6D6E71;">8,089</td><td class="num" style="color:#6D6E71;">4.8%</td><td class="num" style="color:#9D1526;font-weight:600">(135,690)</td><td class="num" style="color:#9D1526;font-weight:600">(330.3)</td></tr>
+<tr><td class="env-name">ENVMERIDGE9X12NI11/08</td><td class="num">45,000</td><td class="num">8,565</td><td class="num" style="color:#6D6E71;">254</td><td class="num" style="color:#6D6E71;">3.0%</td><td class="num" style="color:#186741;font-weight:600">36,181</td><td class="num" style="color:#B8860B;font-weight:600">167.3</td></tr>
+<tr><td class="env-name">Tax Form Envelopes (1099/1099-R)</td><td class="num">0</td><td class="num">1</td><td class="num" style="color:#6D6E71;">0</td><td class="num" style="color:#6D6E71;">—</td><td class="num" style="color:#9D1526;font-weight:600">(1)</td><td class="num" style="color:#6D6E71;font-weight:600">—</td></tr>
+<tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>21,039,500</strong></td><td class="num"><strong>18,469,949</strong></td><td class="num" style="color:#6D6E71;"><strong>690,603</strong></td><td class="num" style="color:#6D6E71;"><strong>3.7%</strong></td><td class="num" style="color:#186741;font-weight:700"><strong>1,878,948</strong></td><td class="num" style="color:#B8860B;font-weight:700"><strong>6.6</strong></td></tr>
             </tbody>
         </table></div>
     </div>
 </div>
 
 <div class="section" id="reference">
-    <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-header">
         <h2>Reference</h2>
-        <span class="toggle">&#9660;</span>
     </div>
     <div class="section-body">
-        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 16px;">Data sources &amp; methodology</h3>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <table style="width:auto;background:transparent;font-size:13px;">
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">63 files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">50 files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>
-                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>
+        <h3 style="color:#052390;font-size:14px;margin:0 0 12px;">Data sources &amp; methodology</h3>
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:16px;border:1px solid #E2E2E2;">
+            <table style="width:auto;background:transparent;font-size:12px;">
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">63 files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">50 files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#333;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>
+                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#333;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>
             </table>
         </div>
-        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Contract terms &mdash; envelope materials</h3>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>
-            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019.</p>
-            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">
+        <h3 style="color:#052390;font-size:14px;margin:24px 0 12px;">Contract terms &mdash; envelope materials</h3>
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Original Contract &mdash; Section 4, Compensation</p>
+            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">GTO Print and Mail Services Schedule, effective January 1, 2019.</p>
+            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">
                 &ldquo;Materials (such as paper, envelopes, and inserts) and postage, presort and insert related fees are not included in the Annual Fee and will be charged separately. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;
             </blockquote>
         </div>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>
-            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Term extended through December 31, 2028.</p>
-            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>
+            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Term extended through December 31, 2028.</p>
+            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">
                 &ldquo;Materials are billed at inventory cost plus 10% margin. Inventory cost means for (i) Client specific inventory: vendor price; and (ii) generic inventory: vendor price plus wastage as follows: <strong>10% for continuous form, 3% for cutsheet, and 2% for envelopes.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;
             </blockquote>
         </div>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>
-            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Original Contract &mdash; Section 8, Materials</p>
+            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">
                 &ldquo;Client will specify the materials (paper, inserts and envelope) (&ldquo;Materials&rdquo;) to be used; provided, however, that materials specified must conform to Broadridge print and insert equipment specifications. <strong>Broadridge shall be responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes</strong>, except where Client is responsible for Materials as specified in Section 3.&rdquo;
             </blockquote>
         </div>
@@ -262,23 +214,23 @@ table tbody tr:hover { background: #1A2A3D !important; }
             <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>
             </tbody>
         </table></div>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Broadridge confirmation &mdash; operational wastage rates</p>
-            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>
-            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Broadridge confirmation &mdash; operational wastage rates</p>
+            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>
+            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">
                 &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>
                 &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)
             </blockquote>
-            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>
+            <p style="font-size:11px;color:#6D6E71;margin:6px 0 0;"><strong style="color:#333;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>
         </div>
-        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-bottom:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">
-            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Pre-settlement context</p>
-            <strong style="color:#E0E1E6;">Jan 2020 &ndash; Feb 2022:</strong> 9,026,000 purchased, 7,903,468 used. These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. <strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> 30,065,500 purchased, 26,373,417 used, +3,692,083 variance.
+        <div style="background:#F5F5F7;border-radius:8px;padding:14px 20px;margin-bottom:12px;border:1px solid #E2E2E2;font-size:12px;color:#6D6E71;line-height:1.7;">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Pre-settlement context</p>
+            <strong style="color:#333;">Jan 2020 &ndash; Feb 2022:</strong> 9,026,000 purchased, 7,903,468 used. These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. <strong style="color:#333;">Full period (Jan 2020 &ndash; Dec 2025):</strong> 30,065,500 purchased, 26,373,417 used, +3,692,083 variance.
         </div>
-        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Generic stock classification</h3>
-        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">
-            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 12px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>
-            <div class="table-wrap" style="margin:0;"><table style="font-size:13px;">
+        <h3 style="color:#052390;font-size:14px;margin:24px 0 12px;">Generic stock classification</h3>
+        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">
+            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 10px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>
+            <div class="table-wrap" style="margin:0;"><table style="font-size:12px;">
                 <thead><tr><th>Envelope</th><th>Size</th><th>Windows</th><th>Paper</th><th>Ink</th><th>Security Tint</th><th>Indicia</th><th>Client Branding</th></tr></thead>
                 <tbody>
                 <tr><td>ENVMEAPEXN14PFC</td><td>4&frac34; &times; 11&frac716;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>PFC</td><td>None</td></tr>
@@ -290,7 +242,7 @@ table tbody tr:hover { background: #1A2A3D !important; }
                 <tr><td>ENVCONRIDGE9X12DW</td><td>9 &times; 12</td><td>Double (vert.)</td><td>24WW</td><td>Black</td><td>Wood grain</td><td>None</td><td>None</td></tr>
                 </tbody>
             </table></div>
-            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>
+            <p style="font-size:11px;color:#6D6E71;margin:10px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>
         </div>
     </div>
 </div>
@@ -301,69 +253,5 @@ table tbody tr:hover { background: #1A2A3D !important; }
     Confidential &mdash; Apex Clearing Corporation<br>
     Prepared for reconciliation review with Broadridge Financial Solutions
 </div>
-<script>
-
-function toggleSection(header) {
-    var body = header.nextElementSibling;
-    var arrow = header.querySelector('.toggle');
-    if (body.classList.contains('collapsed')) {
-        body.classList.remove('collapsed');
-        body.style.maxHeight = body.scrollHeight + 'px';
-        arrow.innerHTML = '&#9660;';
-        setTimeout(function() { body.style.maxHeight = 'none'; }, 300);
-    } else {
-        body.style.maxHeight = body.scrollHeight + 'px';
-        body.offsetHeight;
-        body.style.maxHeight = '0';
-        body.classList.add('collapsed');
-        arrow.innerHTML = '&#9654;';
-    }
-}
-function sortTable(th, colIdx) {
-    var table = th.closest('table');
-    var tbody = table.querySelector('tbody');
-    var rows = Array.from(tbody.querySelectorAll('tr')).filter(function(r) {
-        return !r.classList.contains('total-row') && !r.classList.contains('subtotal-row');
-    });
-    var totalRow = tbody.querySelector('.total-row');
-    var asc = th.getAttribute('data-sort-dir') !== 'asc';
-    var ths = table.querySelectorAll('th');
-    for (var i = 0; i < ths.length; i++) { ths[i].removeAttribute('data-sort-dir'); }
-    th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-    rows.sort(function(a, b) {
-        var av = a.cells[colIdx] ? a.cells[colIdx].textContent.trim() : '';
-        var bv = b.cells[colIdx] ? b.cells[colIdx].textContent.trim() : '';
-        var an = parseFloat(av.replace(/[$,%()]/g, '').replace(/,/g, ''));
-        var bn = parseFloat(bv.replace(/[$,%()]/g, '').replace(/,/g, ''));
-        if (av.indexOf('(') === 0) an = -an;
-        if (bv.indexOf('(') === 0) bn = -bn;
-        if (!isNaN(an) && !isNaN(bn)) { return asc ? an - bn : bn - an; }
-        return asc ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-    for (var j = 0; j < rows.length; j++) { tbody.appendChild(rows[j]); }
-    if (totalRow) { tbody.appendChild(totalRow); }
-}
-document.querySelectorAll('.nav a').forEach(function(link) {
-    link.addEventListener('click', function(e) {
-        var id = this.getAttribute('href').substring(1);
-        var el = document.getElementById(id);
-        if (el) {
-            e.preventDefault();
-            var body = el.querySelector('.section-body');
-            if (body && body.classList.contains('collapsed')) {
-                var header = el.querySelector('.section-header');
-                if (header) toggleSection(header);
-            }
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    });
-});
-document.querySelectorAll('.section-body').forEach(function(body) {
-    if (!body.classList.contains('collapsed')) {
-        body.style.maxHeight = 'none';
-    }
-});
-
-</script>
 </body>
 </html>

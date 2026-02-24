@@ -53,16 +53,36 @@ def fmt_pct(v):
     except (ValueError, TypeError):
         return str(v)
 
+def fmt_buffer_months(variance, avg_monthly_usage):
+    """Format buffer months from variance / avg monthly usage."""
+    if avg_monthly_usage == 0:
+        return DASH
+    mo = variance / avg_monthly_usage
+    if mo >= 0:
+        return f"{mo:.1f}"
+    return f"({abs(mo):.1f})"
+
+def buffer_color(variance, avg_monthly_usage):
+    """Color buffer months: red if negative, orange if >3 months (Broadridge policy), green if 0-3."""
+    if avg_monthly_usage == 0:
+        return "#6D6E71"
+    mo = variance / avg_monthly_usage
+    if mo < 0:
+        return "#9D1526"
+    if mo > 3:
+        return "#B8860B"
+    return "#186741"
+
 def var_color(v):
     try:
         val = float(v)
         if val > 0:
-            return "#4CAF79"
+            return "#186741"
         if val < 0:
-            return "#EF5350"
+            return "#9D1526"
     except (ValueError, TypeError):
         pass
-    return "#9A9BA0"
+    return "#6D6E71"
 
 def fmt_money(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -158,6 +178,12 @@ _actual_waste_hi = int(post_used * 0.15)
 _excess_lo = _actual_waste_lo - _contract_waste
 _excess_hi = _actual_waste_hi - _contract_waste
 
+# Buffer stock / excess inventory analysis
+# Trailing 12-month average usage for buffer coverage (captures full seasonal cycle)
+_last_12 = post.tail(12)
+_trailing_avg = int(_last_12["Envelopes Used (Volume)"].mean())
+_buffer_months = post_variance / _trailing_avg if _trailing_avg else 0
+
 # Envelope type lookups — filtered to post-settlement
 post_type_mask = by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
 by_type = by_type_monthly[post_type_mask].groupby("Envelope Type", as_index=False).agg({"Purchased": "sum"})
@@ -174,6 +200,12 @@ for _, r in post_usage_type_monthly.iterrows():
     t = r["Envelope Type"]
     w = int(safe(r["Envelopes Used"]) * get_wastage_rate(r["Month"]))
     wastage_by_type_dict[t] = wastage_by_type_dict.get(t, 0) + w
+
+# Trailing 12-month usage by envelope type (for buffer month calculation)
+_last_12_months = sorted(post["Month"].unique(), key=month_label_to_sortkey)[-12:]
+_t12_usage_mask = post_usage_type_monthly["Month"].isin(_last_12_months)
+_t12_usage_by_type = post_usage_type_monthly[_t12_usage_mask].groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
+trailing12_by_type_dict = dict(zip(_t12_usage_by_type["Envelope Type"], _t12_usage_by_type["Envelopes Used"]))
 
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
@@ -226,31 +258,33 @@ def build_combined_env_rows():
         grand_u += u
         grand_w += w
         vc = var_color(v)
-        vpct = v / p if p else 0
+        t12_u = sum(safe(trailing12_by_type_dict.get(t, 0)) for t in g["usage_types"])
+        avg_mo = t12_u / 12 if t12_u else 0
+        bc = buffer_color(v, avg_mo)
         rows.append(
             '<tr>'
             + f'<td class="env-name">{g["label"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_pct(w / u if u else 0)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_pct(w / u if u else 0)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+            + f'<td class="num" style="color:{bc};font-weight:600">{fmt_buffer_months(v, avg_mo)}</td>'
             + '</tr>'
         )
     gau = grand_u + grand_w
     gv = grand_p - gau
     gvc = var_color(gv)
-    gpct = gv / grand_p if grand_p else 0
+    gbc = buffer_color(gv, _trailing_avg)
     rows.append(
         '<tr class="total-row">'
         + f'<td><strong>Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(grand_w)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_pct(grand_w / grand_u if grand_u else 0)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(grand_w)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_pct(grand_w / grand_u if grand_u else 0)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
+        + f'<td class="num" style="color:{gbc};font-weight:700"><strong>{fmt_buffer_months(gv, _trailing_avg)}</strong></td>'
         + '</tr>'
     )
     return "\n".join(rows)
@@ -277,31 +311,33 @@ def build_sku_recon_rows():
         grand_u += u
         grand_w += w
         vc = var_color(v)
-        vpct = v / p if p else 0
+        t12_u = safe(trailing12_by_type_dict.get(t, 0))
+        avg_mo = t12_u / 12 if t12_u else 0
+        bc = buffer_color(v, avg_mo)
         rows.append(
             '<tr>'
             + f'<td class="env-name">{t}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
-            + f'<td class="num" style="color:#9A9BA0;">{fmt_pct(w / u if u else 0)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_pct(w / u if u else 0)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+            + f'<td class="num" style="color:{bc};font-weight:600">{fmt_buffer_months(v, avg_mo)}</td>'
             + '</tr>'
         )
     gau = grand_u + grand_w
     gv = grand_p - gau
     gvc = var_color(gv)
-    gpct = gv / grand_p if grand_p else 0
+    gbc = buffer_color(gv, _trailing_avg)
     rows.append(
         '<tr class="total-row">'
         + f'<td><strong>Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(grand_w)}</strong></td>'
-        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_pct(grand_w / grand_u if grand_u else 0)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(grand_w)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_pct(grand_w / grand_u if grand_u else 0)}</strong></td>'
         + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
+        + f'<td class="num" style="color:{gbc};font-weight:700"><strong>{fmt_buffer_months(gv, _trailing_avg)}</strong></td>'
         + '</tr>'
     )
     return "\n".join(rows)
@@ -321,186 +357,65 @@ post_var_pct = post_variance / post_purchased if post_purchased else 0
 # CSS (same Apex brand design system as internal report)
 # ---------------------------------------------------------------------------
 CSS = """*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
 body {
     margin: 0; padding: 0;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 14px; line-height: 1.5; color: #E0E1E6; background: #131416;
+    font-size: 12px; line-height: 1.5; color: #333; background: #FFFFFF;
 }
 .header {
-    background: linear-gradient(135deg, #0A1A4A, #1A3A8F);
-    color: #FFFFFF; padding: 48px 40px 40px;
+    background: linear-gradient(135deg, #052390, #1A3A8F);
+    color: #FFFFFF; padding: 40px 40px 32px;
 }
-.header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
-.header .subtitle { font-size: 16px; opacity: 0.85; margin: 0 0 4px; }
-.header .from-line { font-size: 14px; opacity: 0.75; margin: 0 0 4px; }
-.header .generated { font-size: 13px; opacity: 0.65; margin: 0; }
-.nav {
-    position: sticky; top: 0; z-index: 100;
-    background: #1E1F23; border-bottom: 2px solid #3A3B40;
-    padding: 0 40px; display: flex; gap: 0; overflow-x: auto;
-}
-.nav a {
-    color: #5B9BF7; text-decoration: none; font-size: 13px; font-weight: 500;
-    padding: 12px 16px; white-space: nowrap;
-    border-bottom: 3px solid transparent; transition: border-color 0.2s, color 0.2s;
-}
-.nav a:hover { color: #82B4FF; border-bottom-color: #5B9BF7; }
-.content { max-width: 1340px; margin: 0 auto; padding: 32px 40px 60px; }
-.section { margin-bottom: 40px; }
-.section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; user-select: none; margin-bottom: 16px;
-}
-.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #82B4FF; }
-.section-header .toggle {
-    font-size: 18px; color: #9A9BA0; width: 28px; height: 28px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%; transition: background 0.2s;
-}
-.section-header:hover .toggle { background: #2A2B30; }
-.section-body { transition: max-height 0.3s ease; overflow: hidden; }
-.section-body.collapsed { max-height: 0 !important; overflow: hidden; }
-.kpi-grid { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
+.header h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.header .subtitle { font-size: 14px; opacity: 0.85; margin: 0 0 4px; }
+.header .from-line { font-size: 13px; opacity: 0.75; margin: 0 0 4px; }
+.header .generated { font-size: 12px; opacity: 0.65; margin: 0; }
+.content { max-width: 1100px; margin: 0 auto; padding: 28px 40px 40px; }
+.section { margin-bottom: 32px; page-break-inside: avoid; }
+.section-header { margin-bottom: 14px; }
+.section-header h2 { margin: 0; font-size: 18px; font-weight: 600; color: #052390; border-bottom: 2px solid #052390; padding-bottom: 6px; }
+.kpi-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 10px; }
 .kpi-card {
-    flex: 1 1 200px; background: #1E1F23; border-radius: 12px; padding: 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
-    min-width: 190px; border: 1px solid #2A2B30;
+    flex: 1 1 180px; background: #F5F5F7; border-radius: 8px; padding: 18px 20px;
+    min-width: 170px; border: 1px solid #E2E2E2;
 }
 .kpi-card .kpi-label {
-    font-size: 12px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #9A9BA0; margin: 0 0 8px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #6D6E71; margin: 0 0 6px;
 }
-.kpi-card .kpi-value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
-.kpi-card .kpi-sub { font-size: 12px; color: #9A9BA0; margin: 6px 0 0; }
-.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #1E1F23; }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; margin: 0; line-height: 1.2; }
+.kpi-card .kpi-sub { font-size: 11px; color: #6D6E71; margin: 4px 0 0; }
+.table-wrap { border-radius: 4px; border: 1px solid #E2E2E2; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; background: #FFFFFF; }
 table th {
-    background: #0A1A4A; color: #FFFFFF; padding: 10px 14px; text-align: left;
-    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
-    cursor: pointer; white-space: nowrap; user-select: none;
+    background: #052390; color: #FFFFFF; padding: 8px 12px; text-align: left;
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+    white-space: nowrap;
 }
-table th:hover { background: #1A3A8F; }
-table th .sort-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
-table td { padding: 8px 14px; border-bottom: 1px solid #2A2B30; white-space: nowrap; color: #E0E1E6; }
+table td { padding: 6px 12px; border-bottom: 1px solid #E2E2E2; white-space: nowrap; color: #333; }
 table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
-table tbody tr:hover { background: #1A2A3D !important; }
-.subtotal-row { background: #252830 !important; border-top: 2px solid #3A3D48; }
-.total-row { background: #2A2D35 !important; border-top: 2px solid #3A3D48; }
-.bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
-.bar-fill {
-    height: 18px; background: linear-gradient(90deg, #2954F0, #5B9BF7);
-    border-radius: 9px; min-width: 3px;
-}
-.bar-label { font-size: 12px; font-weight: 500; color: #9A9BA0; white-space: nowrap; }
-.flag-under {
-    background: #1A3A2A; color: #4CAF79; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
-.flag-ok {
-    background: #252629; color: #9A9BA0; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-}
+.subtotal-row { background: #F0F0F5 !important; border-top: 2px solid #D0D0D8; }
+.total-row { background: #E8E8ED !important; border-top: 2px solid #D0D0D8; }
+table tbody tr:nth-child(even) { background: #FAFAFA; }
 .footer {
-    text-align: center; padding: 32px 40px; font-size: 12px;
-    color: #9A9BA0; border-top: 1px solid #2A2B30;
+    text-align: center; padding: 24px 40px; font-size: 11px;
+    color: #6D6E71; border-top: 1px solid #E2E2E2;
 }
 @media print {
-    .nav { display: none; }
-    .section-header .toggle { display: none; }
-    .section-body.collapsed { max-height: none !important; }
-    body { background: #FFFFFF !important; color: #333 !important; font-size: 11px; }
-    .kpi-card, .bottom-line, .info-box, .context-line, .table-wrap { background: #FFFFFF !important; border-color: #E2E2E2 !important; box-shadow: none !important; }
-    .bottom-line p, .info-box p, .kpi-card .kpi-sub { color: #333 !important; }
-    .bottom-line .bl-heading, .kpi-card .kpi-label, .section-header h2 { color: #052390 !important; }
-    table { background: #FFFFFF !important; }
-    table td { color: #333 !important; border-bottom-color: #E2E2E2 !important; }
-    table th { background: #052390 !important; }
-    .subtotal-row { background: #F0F0F5 !important; }
-    .total-row { background: #F5F5F7 !important; }
-    .context-line { background: #F5F5F7 !important; }
-    .footer { color: #6D6E71 !important; border-top-color: #E2E2E2 !important; }
-}
-@media (max-width: 768px) {
-    .header { padding: 32px 20px 28px; }
-    .header h1 { font-size: 24px; }
-    .content { padding: 20px; }
-    .nav { padding: 0 16px; }
-    .kpi-card .kpi-value { font-size: 22px; }
+    .header { padding: 28px 0 20px; }
+    .content { padding: 16px 0 20px; }
+    .section { page-break-inside: avoid; margin-bottom: 20px; }
+    .kpi-card { box-shadow: none; }
+    .table-wrap { box-shadow: none; border: 1px solid #CCC; }
 }
 """
 
 # ---------------------------------------------------------------------------
 # JS
 # ---------------------------------------------------------------------------
-JS = """
-function toggleSection(header) {
-    var body = header.nextElementSibling;
-    var arrow = header.querySelector('.toggle');
-    if (body.classList.contains('collapsed')) {
-        body.classList.remove('collapsed');
-        body.style.maxHeight = body.scrollHeight + 'px';
-        arrow.innerHTML = '&#9660;';
-        setTimeout(function() { body.style.maxHeight = 'none'; }, 300);
-    } else {
-        body.style.maxHeight = body.scrollHeight + 'px';
-        body.offsetHeight;
-        body.style.maxHeight = '0';
-        body.classList.add('collapsed');
-        arrow.innerHTML = '&#9654;';
-    }
-}
-function sortTable(th, colIdx) {
-    var table = th.closest('table');
-    var tbody = table.querySelector('tbody');
-    var rows = Array.from(tbody.querySelectorAll('tr')).filter(function(r) {
-        return !r.classList.contains('total-row') && !r.classList.contains('subtotal-row');
-    });
-    var totalRow = tbody.querySelector('.total-row');
-    var asc = th.getAttribute('data-sort-dir') !== 'asc';
-    var ths = table.querySelectorAll('th');
-    for (var i = 0; i < ths.length; i++) { ths[i].removeAttribute('data-sort-dir'); }
-    th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
-    rows.sort(function(a, b) {
-        var av = a.cells[colIdx] ? a.cells[colIdx].textContent.trim() : '';
-        var bv = b.cells[colIdx] ? b.cells[colIdx].textContent.trim() : '';
-        var an = parseFloat(av.replace(/[$,%()]/g, '').replace(/,/g, ''));
-        var bn = parseFloat(bv.replace(/[$,%()]/g, '').replace(/,/g, ''));
-        if (av.indexOf('(') === 0) an = -an;
-        if (bv.indexOf('(') === 0) bn = -bn;
-        if (!isNaN(an) && !isNaN(bn)) { return asc ? an - bn : bn - an; }
-        return asc ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-    for (var j = 0; j < rows.length; j++) { tbody.appendChild(rows[j]); }
-    if (totalRow) { tbody.appendChild(totalRow); }
-}
-document.querySelectorAll('.nav a').forEach(function(link) {
-    link.addEventListener('click', function(e) {
-        var id = this.getAttribute('href').substring(1);
-        var el = document.getElementById(id);
-        if (el) {
-            e.preventDefault();
-            var body = el.querySelector('.section-body');
-            if (body && body.classList.contains('collapsed')) {
-                var header = el.querySelector('.section-header');
-                if (header) toggleSection(header);
-            }
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    });
-});
-document.querySelectorAll('.section-body').forEach(function(body) {
-    if (!body.classList.contains('collapsed')) {
-        body.style.maxHeight = 'none';
-    }
-});
-"""
-
-SA = '<span class="sort-arrow">&#9650;&#9660;</span>'
-
 def th_row(headers):
-    return "".join(f'<th onclick="sortTable(this,{i})">{h} {SA}</th>' for i, h in enumerate(headers))
+    return "".join(f'<th>{h}</th>' for h in headers)
 
 # ---------------------------------------------------------------------------
 # Build HTML
@@ -520,35 +435,29 @@ html += '    <p class="from-line">From: Apex Clearing Corporation</p>\n'
 html += f'    <p class="generated">Generated {pd.Timestamp.now().strftime("%B %d, %Y")}</p>\n'
 html += '</div>\n'
 
-# --- Nav ---
-html += '<nav class="nav">\n'
-html += '    <a href="#summary">Summary</a>\n'
-html += '    <a href="#review">Items for Review</a>\n'
-html += '    <a href="#envelope-types">By Type</a>\n'
-html += '    <a href="#reference">Reference</a>\n'
-html += '</nav>\n'
 html += '<div class="content">\n'
 
 # ===== SECTION 1: SUMMARY =====
 html += '<div class="section" id="summary">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '    <div class="section-header">\n'
 html += '        <h2>Summary</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <p style="font-size:14px;color:#E0E1E6;margin:0 0 20px;line-height:1.6;">This report presents Apex&rsquo;s reconciliation of envelope purchases versus usage across 46 months of post-settlement activity. We are sharing this for Broadridge&rsquo;s review and validation.</p>\n'
+html += '        <p style="font-size:13px;color:#333;margin:0 0 18px;line-height:1.6;">This report presents Apex&rsquo;s reconciliation of envelope purchases versus usage across 46 months of post-settlement activity. We are sharing this for Broadridge&rsquo;s review and validation.</p>\n'
 
 # KPI cards
 html += '        <div class="kpi-grid">\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(post_wastage)} wastage (contract max)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num_parens(post_variance)}</p><p class="kpi-sub">{fmt_pct(post_var_pct)} of purchased</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#5B9BF7">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#052390">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage (Est.)</p><p class="kpi-value" style="color:#052390">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(post_wastage)} est. wastage</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num_parens(post_variance)}</p><p class="kpi-sub">{_buffer_months:.1f} months of buffer stock</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#052390">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
 html += '        </div>\n'
+html += '        <p style="font-size:10px;color:#6D6E71;margin:6px 0 4px;line-height:1.5;"><strong>Wastage (Est.)</strong> = contractual maximum wastage allowance per Section 4: 5% of usage (Jan 2019&ndash;Dec 2023) and 2% of usage (Jan 2024+). Actual operational wastage may differ. See <em>Items for Review</em>.</p>\n'
+html += '        <p style="font-size:10px;color:#6D6E71;margin:0 0 12px;line-height:1.5;"><strong>Buffer (Mo.)</strong> = Adj. Variance &divide; Avg Monthly Usage, where Adj. Variance = Purchased &minus; Used &minus; Wastage (Est.), and Avg Monthly Usage = trailing 12-month average (captures full seasonal cycle including quarter-end and year-end peaks). Year rows use that year&rsquo;s own month count and usage. Broadridge&rsquo;s stated policy is 2&ndash;3 months of supply (Brandon Koebel, Nov 2022).</p>\n'
 
 # Year-by-year table
 html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
-html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Wastage</th><th>Wastage %</th><th>Adj. Variance</th><th>Var %</th><th>Invoiced</th></tr></thead>\n'
+html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Wastage (Est.)</th><th>Wastage %</th><th>Adj. Variance</th><th>Buffer (Mo.)</th><th>Invoiced</th></tr></thead>\n'
 html += '            <tbody>\n'
 for yr in sorted(post_yearly.keys()):
     d = post_yearly[yr]
@@ -556,26 +465,29 @@ for yr in sorted(post_yearly.keys()):
     yau = yu + yw
     yv = yp - yau
     vc = var_color(yv)
-    vpct = yv / yp if yp else 0
+    y_avg_mo = yu / mc if mc else 0
+    ybc = buffer_color(yv, y_avg_mo)
     yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
     html += f'            <tr><td>{yr_label}</td>'
     html += f'<td class="num">{fmt_num(yp)}</td>'
     html += f'<td class="num">{fmt_num(yu)}</td>'
-    html += f'<td class="num" style="color:#9A9BA0;">{fmt_num(yw)}</td>'
+    html += f'<td class="num" style="color:#6D6E71;">{fmt_num(yw)}</td>'
     wpct = yw / yu if yu else 0
-    html += f'<td class="num" style="color:#9A9BA0;">{fmt_pct(wpct)}</td>'
+    html += f'<td class="num" style="color:#6D6E71;">{fmt_pct(wpct)}</td>'
     html += f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(yv)}</td>'
-    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+    html += f'<td class="num" style="color:{ybc};font-weight:600">{fmt_buffer_months(yv, y_avg_mo)}</td>'
     html += f'<td class="num">{fmt_money(yi)}</td></tr>\n'
 # Total row
 html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
-html += f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(post_wastage)}</strong></td>'
+html += f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(post_wastage)}</strong></td>'
 total_wpct = post_wastage / post_used if post_used else 0
-html += f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_pct(total_wpct)}</strong></td>'
+html += f'<td class="num" style="color:#6D6E71;"><strong>{fmt_pct(total_wpct)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
-html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_var_pct)}</strong></td>'
+_total_avg_mo = post_used / post_months if post_months else 0
+_total_bc = buffer_color(post_variance, _total_avg_mo)
+html += f'<td class="num" style="color:{_total_bc};font-weight:700"><strong>{fmt_buffer_months(post_variance, _total_avg_mo)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
@@ -585,28 +497,48 @@ html += '</div>\n\n'
 
 # ===== SECTION 2: ITEMS FOR REVIEW =====
 html += '<div class="section" id="review">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '    <div class="section-header">\n'
 html += '        <h2>Items for review</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 
 # Wastage observation
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Wastage &mdash; contractual vs. operational</p>\n'
-html += f'            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) '
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Wastage &mdash; contractual vs. operational</p>\n'
+html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) '
 html += f'and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Broadridge has separately confirmed that actual operational wastage runs 10&ndash;15%.</p>\n'
-html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Contract max wastage (5%/2% blended)</td>'
-html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_contract_waste)} envelopes</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 10%</td>'
-html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_actual_waste_lo)} envelopes</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 15%</td>'
-html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_actual_waste_hi)} envelopes</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Excess beyond contract allowance</td>'
-html += f'<td style="border:none;padding:4px 0;color:#82B4FF;font-weight:600;">{fmt_num(_excess_lo)}&ndash;{fmt_num(_excess_hi)} envelopes</td></tr>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:12px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Contract max wastage (5%/2% blended)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#333;font-weight:600;">{fmt_num(_contract_waste)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Operational wastage at 10%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#333;font-weight:600;">{fmt_num(_actual_waste_lo)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Operational wastage at 15%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#333;font-weight:600;">{fmt_num(_actual_waste_hi)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Excess beyond contract allowance</td>'
+html += f'<td style="border:none;padding:4px 0;color:#052390;font-weight:600;">{fmt_num(_excess_lo)}&ndash;{fmt_num(_excess_hi)} envelopes</td></tr>\n'
 html += '            </table>\n'
-html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>\n'
+html += f'            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>\n'
+html += '        </div>\n'
+
+# Excess inventory observation
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Excess inventory</p>\n'
+html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">After accounting for contractual wastage, post-settlement purchases exceed adjusted usage by <strong>{fmt_num(post_variance)} envelopes</strong>. '
+html += f'At the trailing 12-month average usage of {fmt_num(_trailing_avg)}/month, this represents approximately <strong>{_buffer_months:.1f} months</strong> of buffer stock.</p>\n'
+html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">Broadridge has stated a policy of maintaining 2&ndash;3 months of envelope supply (Brandon Koebel, Nov 2022). '
+html += f'Section 8 requires Broadridge to be &ldquo;responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes.&rdquo;</p>\n'
+html += f'            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">We would like to understand the current inventory position and whether ordering volumes are being adjusted to align with declining usage trends.</p>\n'
+html += '        </div>\n'
+
+# Confirmation questions
+html += '        <div style="background:#FFFFFF;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:2px solid #052390;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 12px;">Outstanding items for Broadridge confirmation</p>\n'
+html += '            <ol style="font-size:12px;line-height:1.8;color:#333;margin:0;padding-left:20px;">\n'
+html += '                <li><strong>Data validation:</strong> Please review the purchased and used totals in this report and confirm they align with Broadridge&rsquo;s records.</li>\n'
+html += '                <li><strong>Wastage rate applied:</strong> What wastage rate is currently being applied to envelope charges? The contract specifies 5% (original) / 2% (amendment) for generic envelope stock. Operational wastage has been confirmed at 10&ndash;15% &mdash; please clarify whether the invoiced rate reflects the contractual rate or the operational rate.</li>\n'
+html += '                <li><strong>Unit rate breakdown:</strong> Please provide a sample breakdown of the invoiced unit rate for envelopes showing the vendor price, wastage component, and margin (if applicable) for a recent month.</li>\n'
+html += '                <li><strong>Inventory position:</strong> Please provide the current envelope inventory levels and confirm whether ordering volumes are being adjusted to reflect the decline in average monthly usage.</li>\n'
+html += '            </ol>\n'
 html += '        </div>\n'
 
 html += '    </div>\n'
@@ -614,80 +546,79 @@ html += '</div>\n\n'
 
 # ===== SECTION 3: PURCHASES & USAGE BY ENVELOPE TYPE =====
 html += '<div class="section" id="envelope-types">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '    <div class="section-header">\n'
 html += '        <h2>Purchases &amp; usage by envelope type</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Wastage","Wastage %","Adj. Variance","Variance %"]) + '</tr></thead>\n'
+html += '        <div class="table-wrap"><table>\n'
+html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Wastage (Est.)","Wastage %","Adj. Variance","Buffer (Mo.)"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
-html += '        <p style="font-size:12px;color:#9A9BA0;margin:4px 0 0;"><strong style="color:#E0E1E6;">9x12 Flat Confirms:</strong> The deficit reflects a temporary production surge in mid-2022 (Ridge/Penson migration) when Broadridge routed a portion of confirms through flat production. Pre-existing buffer stock covered the shortfall. This category represents 0.7% of total volume.</p>\n'
+html += '        <p style="font-size:11px;color:#6D6E71;margin:10px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
+html += '        <p style="font-size:11px;color:#6D6E71;margin:4px 0 0;"><strong style="color:#333;">Wastage % by type:</strong> The per-type wastage rate reflects each SKU&rsquo;s blend of pre-2024 usage (5% contract rate) and post-2024 usage (2% amended rate). SKUs with usage concentrated before 2024 show rates closer to 5%; those with more recent usage trend toward 2%. The overall blended rate across all types is 3.7%.</p>\n'
+html += '        <p style="font-size:11px;color:#6D6E71;margin:4px 0 0;"><strong style="color:#333;">9x12 Flat Confirms:</strong> The deficit reflects a temporary production surge in mid-2022 (Ridge/Penson migration) when Broadridge routed a portion of confirms through flat production. Pre-existing buffer stock covered the shortfall. This category represents 0.7% of total volume.</p>\n'
 
 # NI/PFC transition context
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
-html += '            <p style="font-weight:700;color:#82B4FF;margin:0 0 8px;">NI / PFC transition (Oct 2022)</p>\n'
-html += '            <p style="margin:0 0 8px;"><strong>Before Oct 2022:</strong> All #10 fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI (No Imprint).</p>\n'
-html += '            <p style="margin:0 0 8px;"><strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22) (Pre-Sorted First-Class); foreign mail remained on ENVCONPFSN10NI at ~8,000/month.</p>\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:14px 20px;margin-top:14px;border:1px solid #E2E2E2;font-size:12px;line-height:1.7;color:#333;">\n'
+html += '            <p style="font-weight:700;color:#052390;margin:0 0 6px;">NI / PFC transition (Oct 2022)</p>\n'
+html += '            <p style="margin:0 0 6px;"><strong>Before Oct 2022:</strong> All #10 fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI (No Imprint).</p>\n'
+html += '            <p style="margin:0 0 6px;"><strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22) (Pre-Sorted First-Class); foreign mail remained on ENVCONPFSN10NI at ~8,000/month.</p>\n'
 html += '            <p style="margin:0;">The same transition applies to N14 statements (PFC for domestic, NI for foreign) and 9x12 flats. NI and PFC versions are physically interchangeable &mdash; NI envelopes can be used for domestic mail by adding indicia at time of mailing.</p>\n'
 html += '        </div>\n'
 
 # SKU-level breakdown
-html += '        <h3 style="color:#82B4FF;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Wastage","Wastage %","Adj. Variance","Variance %"]) + '</tr></thead>\n'
+html += '        <h3 style="color:#052390;font-size:14px;margin:24px 0 10px;">By SKU</h3>\n'
+html += '        <div class="table-wrap"><table>\n'
+html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Wastage (Est.)","Wastage %","Adj. Variance","Buffer (Mo.)"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 
 html += '    </div>\n</div>\n\n'
 
-# ===== SECTION 5: REFERENCE =====
+# ===== SECTION 4: REFERENCE =====
 html += '<div class="section" id="reference">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '    <div class="section-header">\n'
 html += '        <h2>Reference</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 
 # Data sources & methodology
-html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 16px;">Data sources &amp; methodology</h3>\n'
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <table style="width:auto;background:transparent;font-size:13px;">\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{purchase_files} files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
+html += '        <h3 style="color:#052390;font-size:14px;margin:0 0 12px;">Data sources &amp; methodology</h3>\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:16px;border:1px solid #E2E2E2;">\n'
+html += '            <table style="width:auto;background:transparent;font-size:12px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">{purchase_files} files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#333;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#333;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
 html += '            </table>\n'
 html += '        </div>\n'
 
 # Contract terms
-html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Contract terms &mdash; envelope materials</h3>\n'
+html += '        <h3 style="color:#052390;font-size:14px;margin:24px 0 12px;">Contract terms &mdash; envelope materials</h3>\n'
 
 # Original contract
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019.</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Original Contract &mdash; Section 4, Compensation</p>\n'
+html += '            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">GTO Print and Mail Services Schedule, effective January 1, 2019.</p>\n'
+html += '            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">\n'
 html += '                &ldquo;Materials (such as paper, envelopes, and inserts) and postage, presort and insert related fees are not included in the Annual Fee and will be charged separately. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
 html += '            </blockquote>\n'
 html += '        </div>\n'
 
 # Amendment
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Term extended through December 31, 2028.</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
+html += '            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Term extended through December 31, 2028.</p>\n'
+html += '            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">\n'
 html += '                &ldquo;Materials are billed at inventory cost plus 10% margin. Inventory cost means for (i) Client specific inventory: vendor price; and (ii) generic inventory: vendor price plus wastage as follows: <strong>10% for continuous form, 3% for cutsheet, and 2% for envelopes.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
 html += '            </blockquote>\n'
 html += '        </div>\n'
 
 # Materials obligation
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Original Contract &mdash; Section 8, Materials</p>\n'
+html += '            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">\n'
 html += '                &ldquo;Client will specify the materials (paper, inserts and envelope) (&ldquo;Materials&rdquo;) to be used; provided, however, that materials specified must conform to Broadridge print and insert equipment specifications. <strong>Broadridge shall be responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes</strong>, except where Client is responsible for Materials as specified in Section 3.&rdquo;\n'
 html += '            </blockquote>\n'
 html += '        </div>\n'
@@ -702,30 +633,30 @@ html += '            </tbody>\n'
 html += '        </table></div>\n'
 
 # Broadridge confirmation — wastage rates (Koebel emails)
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Broadridge confirmation &mdash; operational wastage rates</p>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Broadridge confirmation &mdash; operational wastage rates</p>\n'
+html += '            <p style="font-size:11px;color:#6D6E71;margin:0 0 6px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
+html += '            <blockquote style="margin:0;padding:10px 14px;background:#FFFFFF;border-left:3px solid #052390;border-radius:0 4px 4px 0;font-size:12px;line-height:1.7;color:#333;">\n'
 html += '                &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>\n'
 html += '                &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)\n'
 html += '            </blockquote>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
+html += '            <p style="font-size:11px;color:#6D6E71;margin:6px 0 0;"><strong style="color:#333;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
 html += '        </div>\n'
 
 # Pre-settlement context
-html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-bottom:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
-html += f'            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Pre-settlement context</p>\n'
-html += f'            <strong style="color:#E0E1E6;">Jan 2020 &ndash; Feb 2022:</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
+html += f'        <div style="background:#F5F5F7;border-radius:8px;padding:14px 20px;margin-bottom:12px;border:1px solid #E2E2E2;font-size:12px;color:#6D6E71;line-height:1.7;">\n'
+html += f'            <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 6px;">Pre-settlement context</p>\n'
+html += f'            <strong style="color:#333;">Jan 2020 &ndash; Feb 2022:</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
 html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. '
-html += f'<strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
+html += f'<strong style="color:#333;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
 html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} variance.\n'
 html += '        </div>\n'
 
 # Generic stock classification
-html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Generic stock classification</h3>\n'
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 12px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>\n'
-html += '            <div class="table-wrap" style="margin:0;"><table style="font-size:13px;">\n'
+html += '        <h3 style="color:#052390;font-size:14px;margin:24px 0 12px;">Generic stock classification</h3>\n'
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:16px 20px;margin-bottom:12px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 10px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>\n'
+html += '            <div class="table-wrap" style="margin:0;"><table style="font-size:12px;">\n'
 html += '                <thead><tr><th>Envelope</th><th>Size</th><th>Windows</th><th>Paper</th><th>Ink</th><th>Security Tint</th><th>Indicia</th><th>Client Branding</th></tr></thead>\n'
 html += '                <tbody>\n'
 html += '                <tr><td>ENVMEAPEXN14PFC</td><td>4&frac34; &times; 11&frac716;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>PFC</td><td>None</td></tr>\n'
@@ -737,7 +668,7 @@ html += '                <tr><td>ENVMERIDGE9X12NI11/08</td><td>9 &times; 12</td>
 html += '                <tr><td>ENVCONRIDGE9X12DW</td><td>9 &times; 12</td><td>Double (vert.)</td><td>24WW</td><td>Black</td><td>Wood grain</td><td>None</td><td>None</td></tr>\n'
 html += '                </tbody>\n'
 html += '            </table></div>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
+html += '            <p style="font-size:11px;color:#6D6E71;margin:10px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        </div>\n'
 
 html += '    </div>\n</div>\n\n'
@@ -750,8 +681,6 @@ html += '    Confidential &mdash; Apex Clearing Corporation<br>\n'
 html += '    Prepared for reconciliation review with Broadridge Financial Solutions\n'
 html += '</div>\n'
 
-# JS
-html += f'<script>\n{JS}\n</script>\n'
 html += '</body>\n</html>\n'
 
 with open(HTML_PATH, "w", encoding="utf-8") as f:
