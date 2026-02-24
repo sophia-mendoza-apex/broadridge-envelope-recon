@@ -1204,8 +1204,44 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
 ```
 
+### 2026-02-24 (session 16 — part 3)
+
+**Accomplished:**
+- Removed 4 of 5 security-reviewed risk items from the Broadridge report per user decision
+- Report regenerated (51.4KB → 49.1KB)
+
+**Items removed:**
+1. **Settlement dollar amount** — removed `$643,457.92` figure and `GTO Proxy & BPS Early Renewal Term Sheet, June 2022` citation from pre-settlement context box; now reads "per the pass-through paper and envelope dispute settlement" without specifics
+2. **Deduplication methodology** — removed "Two-pass: (1) same-source by date+description+qty, (2) cross-source by PO number" row from data sources table
+3. **Supplementary source reference** — removed "2019-2022 Purchases.xlsx (consolidated PO history, used to fill Jun 2020 gap)" row from data sources table
+4. **Billing excess ($192K)** — removed entire "Billing basis — for discussion" info box (invoiced vs usage-based calculation, $192K difference, zero-purchase months note) and cleaned up unused Python variables (`avg_inv_per_unit`, `usage_based_invoice`, `billing_excess`, `zero_purchase_usage_months`)
+
+**Item retained:**
+5. **"Broadridge has separately confirmed" wastage** — kept; grounded in Broadridge's own contract language and operational practices
+
+**Broadridge report structure (current):**
+1. Summary (4 KPIs + year-by-year with wastage & invoiced + wastage observation + pre-settlement context)
+2. Monthly Detail (7 columns: Month, Purchased, Used, Wastage, Adj. Variance, Var%, Running Balance)
+3. Purchases & Usage by Envelope Type (grouped table + NI/PFC transition context + SKU breakdown)
+4. Reference (data sources & methodology + contract terms Section 4 & 8 + contract summary table + envelope specs)
+
+**Commits this session (all):**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+- `857d3ab` — docs: Update CLAUDE.md with session 16
+- `d03fc54` — feat: Align Broadridge report with internal — full scope reconciliation
+- `4fb0be5` — docs: Update CLAUDE.md and regenerated Broadridge HTML with session 16 continued
+- `7451ee3` — fix: Remove client filter and monthly trend from Broadridge report
+- `25633cb` — docs: Update CLAUDE.md with session 16 part 2
+- `f3ffe60` — fix: Remove sensitive items from Broadridge report before sharing
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
 **Next Steps:**
-- [ ] Decide whether to soften/remove any of the 5 risk items before sending to Broadridge
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
