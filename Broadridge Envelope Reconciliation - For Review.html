@@ -53,10 +53,13 @@ table tbody tr:nth-child(even) { background: #FAFAFA; }
 @media print {
     .header { padding: 28px 0 20px; }
     .content { padding: 16px 0 20px; }
-    .section { page-break-inside: avoid; margin-bottom: 20px; }
+    .section { margin-bottom: 20px; }
     .kpi-card { box-shadow: none; }
-    .table-wrap { box-shadow: none; border: 1px solid #CCC; }
+    .table-wrap { box-shadow: none; border: 1px solid #CCC; page-break-inside: avoid; }
+    blockquote, .kpi-grid, h3 { page-break-inside: avoid; }
+    h3 { page-break-after: avoid; }
 }
+div[style*="border-radius:8px"] { page-break-inside: avoid; }
 </style>
 </head>
 <body>
