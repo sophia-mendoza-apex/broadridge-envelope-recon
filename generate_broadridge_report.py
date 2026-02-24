@@ -64,6 +64,17 @@ def var_color(v):
         pass
     return "#9A9BA0"
 
+def fmt_money(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return DASH
+    try:
+        val = float(v)
+        if val < 0:
+            return f"(${abs(val):,.0f})"
+        return f"${val:,.0f}"
+    except (ValueError, TypeError):
+        return str(v)
+
 def safe(v, default=0):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return default
@@ -90,17 +101,66 @@ post = monthly[post_mask]
 
 post_purchased = int(post["Envelopes Purchased"].sum())
 post_used = int(post["Envelopes Used (Volume)"].sum())
-post_variance = post_purchased - post_used
 post_months = len(post)
+
+# Wastage rates per contract
+WASTAGE_CUTOVER = (24, 0)  # Jan-24
+WASTAGE_PRE_2024 = 0.05
+WASTAGE_POST_2024 = 0.02
+
+def get_wastage_rate(month_label):
+    return WASTAGE_POST_2024 if month_label_to_sortkey(month_label) >= WASTAGE_CUTOVER else WASTAGE_PRE_2024
+
+# Compute total wastage allowance
+post_wastage = sum(int(safe(r["Envelopes Used (Volume)"]) * get_wastage_rate(r["Month"])) for _, r in post.iterrows())
+post_adj_used = post_used + post_wastage
+post_variance = post_purchased - post_adj_used  # wastage-adjusted
 
 # Year-by-year post-settlement
 from collections import defaultdict as _defaultdict
-post_yearly = _defaultdict(lambda: [0, 0, 0])  # purchased, used, month_count
+post_yearly = _defaultdict(lambda: [0, 0, 0, 0, 0, 0])  # purchased, used, month_count, cost, invoiced, wastage
 for _, r in post.iterrows():
     yr = 2000 + int(r["Month"].split('-')[1])
-    post_yearly[yr][0] += safe(r["Envelopes Purchased"])
-    post_yearly[yr][1] += safe(r["Envelopes Used (Volume)"])
+    u = safe(r["Envelopes Purchased"])
+    v = safe(r["Envelopes Used (Volume)"])
+    w = int(v * get_wastage_rate(r["Month"]))
+    post_yearly[yr][0] += u
+    post_yearly[yr][1] += v
     post_yearly[yr][2] += 1
+    post_yearly[yr][3] += safe(r["Purchase Cost"])
+    post_yearly[yr][4] += safe(r["Invoiced Amount"])
+    post_yearly[yr][5] += w
+
+# Post-settlement cost totals and billing basis analysis
+post_invoiced = post["Invoiced Amount"].sum()
+post_cost = post["Purchase Cost"].sum()
+avg_inv_per_unit = post_invoiced / post_purchased if post_purchased else 0
+usage_based_invoice = post_used * avg_inv_per_unit
+billing_excess = post_invoiced - usage_based_invoice
+zero_purchase_usage_months = len(post[(post["Envelopes Purchased"] == 0) & (post["Envelopes Used (Volume)"] > 0)])
+
+# Full-period totals (for context)
+total_purchased = int(monthly["Envelopes Purchased"].sum())
+total_used = int(monthly["Envelopes Used (Volume)"].sum())
+total_months = len(monthly)
+net_variance = total_purchased - total_used
+
+# Pre-settlement totals
+pre_purchased = total_purchased - post_purchased
+pre_used = total_used - post_used
+
+# Source file counts (from build_recon_from_source.py output)
+purchase_files = 63
+billing_files = 50
+
+# Wastage analysis — contract max vs Broadridge-confirmed operational rates
+_pre24_used = sum(post_yearly[y][1] for y in post_yearly if y < 2024)
+_post24_used = sum(post_yearly[y][1] for y in post_yearly if y >= 2024)
+_contract_waste = int(_pre24_used * 0.05 + _post24_used * 0.02)
+_actual_waste_lo = int(post_used * 0.10)
+_actual_waste_hi = int(post_used * 0.15)
+_excess_lo = _actual_waste_lo - _contract_waste
+_excess_hi = _actual_waste_hi - _contract_waste
 
 # Envelope type lookups — filtered to post-settlement
 post_type_mask = by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
@@ -198,14 +258,15 @@ def build_svg_chart():
 def build_monthly_rows():
     rows = []
     running_balance = 0
-    yr_p = yr_u = 0
+    yr_p = yr_u = yr_w = 0
     prev_year = None
 
     def _year_from_label(label):
         return 2000 + int(label.split('-')[1])
 
-    def _subtotal_row(year, yp, yu, rb):
-        yv = yp - yu
+    def _subtotal_row(year, yp, yu, yw, rb):
+        yau = yu + yw
+        yv = yp - yau
         vc = var_color(yv)
         rbc = var_color(rb)
         vpct = yv / yp if yp else 0
@@ -215,6 +276,7 @@ def build_monthly_rows():
             + f'<td><strong>{yr_label} Total</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
+            + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(yw)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
             + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
@@ -225,36 +287,40 @@ def build_monthly_rows():
         cur_year = _year_from_label(r["Month"])
 
         if prev_year is not None and cur_year != prev_year:
-            rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
-            yr_p = yr_u = 0
+            rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
+            yr_p = yr_u = yr_w = 0
 
         prev_year = cur_year
         p = safe(r["Envelopes Purchased"])
         u = safe(r["Envelopes Used (Volume)"])
-        vv = p - u
+        w_rate = get_wastage_rate(r["Month"])
+        w = int(u * w_rate)
+        vv = p - u - w
         running_balance += vv
-        yr_p += p; yr_u += u
+        yr_p += p; yr_u += u; yr_w += w
 
         vc = var_color(vv)
         rbc = var_color(running_balance)
+        vpct = vv / p if p else 0
         bg = "#252629" if i % 2 == 1 else "#1E1F23"
         rows.append(
             f'<tr style="background:{bg}">'
             + f'<td>{r["Month"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(r["Variance %"])}</td>'
+            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
             + '</tr>'
         )
 
     # Final year subtotal
     if prev_year is not None:
-        rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
+        rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
 
     # Grand total
-    gv = post_purchased - post_used
+    gv = post_purchased - post_adj_used
     vc = var_color(gv)
     rbc = var_color(running_balance)
     gpct = gv / post_purchased if post_purchased else 0
@@ -263,6 +329,7 @@ def build_monthly_rows():
         + f'<td><strong>Grand Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
+        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(post_wastage)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
@@ -615,35 +682,84 @@ html += '    <div class="section-body">\n'
 # KPI cards
 html += '        <div class="kpi-grid">\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_used)}</p><p class="kpi-sub">Total envelopes used (volume)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(post_wastage)} wastage (contract max)</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num_parens(post_variance)}</p><p class="kpi-sub">{fmt_pct(post_var_pct)} of purchased</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#5B9BF7">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
 html += '        </div>\n'
 
 # Year-by-year table
 html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
-html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th></tr></thead>\n'
+html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Wastage</th><th>Adj. Variance</th><th>Var %</th><th>Invoiced</th></tr></thead>\n'
 html += '            <tbody>\n'
 for yr in sorted(post_yearly.keys()):
     d = post_yearly[yr]
-    yp, yu, mc = d
-    yv = yp - yu
+    yp, yu, mc, yc, yi, yw = d
+    yau = yu + yw
+    yv = yp - yau
     vc = var_color(yv)
     vpct = yv / yp if yp else 0
     yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
     html += f'            <tr><td>{yr_label}</td>'
     html += f'<td class="num">{fmt_num(yp)}</td>'
     html += f'<td class="num">{fmt_num(yu)}</td>'
+    html += f'<td class="num" style="color:#9A9BA0;">{fmt_num(yw)}</td>'
     html += f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(yv)}</td>'
-    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td></tr>\n'
+    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
+    html += f'<td class="num">{fmt_money(yi)}</td></tr>\n'
 # Total row
 html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
+html += f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(post_wastage)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
-html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_var_pct)}</strong></td></tr>\n'
+html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_var_pct)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
+
+# Billing basis observation
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:20px;border-left:4px solid #5B9BF7;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Billing basis &mdash; for discussion</p>\n'
+html += f'            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">Per Section 4 of both the original contract (Jan 2019) and Amendment No. 1 (Jan 2024), '
+html += f'generic envelope stock is to be billed <strong>&ldquo;based on usage.&rdquo;</strong> '
+html += f'Our review of D17 invoices indicates that envelope charges align with purchase/receipt volumes rather than usage volumes.</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Invoiced (receipt-based)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_money(post_invoiced)}</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">If billed on usage (per contract)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_money(usage_based_invoice)}</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Difference</td>'
+html += f'<td style="border:none;padding:4px 0;color:#82B4FF;font-weight:600;">{fmt_money(billing_excess)}</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">We would like to discuss aligning the billing methodology with the contractual terms. '
+html += f'{zero_purchase_usage_months} months had zero purchases but significant usage, with $0 invoiced for those periods.</p>\n'
+html += '        </div>\n'
+
+# Wastage observation
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Wastage &mdash; contractual vs. operational</p>\n'
+html += f'            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) '
+html += f'and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Broadridge has separately confirmed that actual operational wastage runs 10&ndash;15%.</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Contract max wastage (5%/2% blended)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_contract_waste)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 10%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_actual_waste_lo)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Operational wastage at 15%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_actual_waste_hi)} envelopes</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Excess beyond contract allowance</td>'
+html += f'<td style="border:none;padding:4px 0;color:#82B4FF;font-weight:600;">{fmt_num(_excess_lo)}&ndash;{fmt_num(_excess_hi)} envelopes</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>\n'
+html += '        </div>\n'
+
+# Pre-settlement context
+html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
+html += f'            <strong style="color:#E0E1E6;">Pre-settlement context (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
+html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement (GTO Proxy &amp; BPS Early Renewal Term Sheet, June 2022). '
+html += f'<strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
+html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} variance.\n'
+html += '        </div>\n'
 
 html += '    </div>\n'
 html += '</div>\n\n'
@@ -668,9 +784,10 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
+html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Wastage","Adj. Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
+html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Wastage applied at contractual maximum: <strong>5%</strong> (original contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Adj. Variance = Purchased &minus; Used &minus; Wastage. Running Balance = cumulative adjusted variance.</p>\n'
 html += '    </div>\n</div>\n\n'
 
 # ===== SECTION 4: PURCHASES & USAGE BY ENVELOPE TYPE =====
@@ -686,6 +803,14 @@ html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
 
+# NI/PFC transition context
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '            <p style="font-weight:700;color:#82B4FF;margin:0 0 8px;">NI / PFC transition (Oct 2022)</p>\n'
+html += '            <p style="margin:0 0 8px;"><strong>Before Oct 2022:</strong> All #10 fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI (No Imprint).</p>\n'
+html += '            <p style="margin:0 0 8px;"><strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22) (Pre-Sorted First-Class); foreign mail remained on ENVCONPFSN10NI at ~8,000/month.</p>\n'
+html += '            <p style="margin:0;">The same transition applies to N14 statements (PFC for domestic, NI for foreign) and 9x12 flats. NI and PFC versions are physically interchangeable &mdash; NI envelopes can be used for domestic mail by adding indicia at time of mailing.</p>\n'
+html += '        </div>\n'
+
 # SKU-level breakdown
 html += '        <h3 style="color:#82B4FF;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
@@ -695,13 +820,69 @@ html += '        </table></div>\n'
 
 html += '    </div>\n</div>\n\n'
 
-# ===== SECTION 5: REFERENCE (collapsed by default) =====
+# ===== SECTION 5: REFERENCE =====
 html += '<div class="section" id="reference">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Envelope specifications</h2>\n'
-html += '        <span class="toggle">&#9654;</span>\n'
+html += '        <h2>Reference</h2>\n'
+html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
-html += '    <div class="section-body collapsed">\n'
+html += '    <div class="section-body">\n'
+
+# Data sources & methodology
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 16px;">Data sources &amp; methodology</h3>\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <table style="width:auto;background:transparent;font-size:13px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{purchase_files} files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Supplementary source</td><td style="border:none;padding:4px 0;color:#E0E1E6;">2019&ndash;2022 Purchases.xlsx (consolidated PO history, used to fill Jun 2020 gap)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Client filter</td><td style="border:none;padding:4px 0;color:#E0E1E6;">APEX, Ridge Clearing, Penson/Pension Financial (excludes Broadridge internal, Fidelity, HSBC, Morgan Stanley)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Deduplication</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Two-pass: (1) same-source by date+description+qty, (2) cross-source by PO number</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
+html += '            </table>\n'
+html += '        </div>\n'
+
+# Contract terms
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Contract terms &mdash; envelope materials</h3>\n'
+
+# Original contract
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Materials (such as paper, envelopes, and inserts) and postage, presort and insert related fees are not included in the Annual Fee and will be charged separately. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Amendment
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Term extended through December 31, 2028.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Materials are billed at inventory cost plus 10% margin. Inventory cost means for (i) Client specific inventory: vendor price; and (ii) generic inventory: vendor price plus wastage as follows: <strong>10% for continuous form, 3% for cutsheet, and 2% for envelopes.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Materials obligation
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Client will specify the materials (paper, inserts and envelope) (&ldquo;Materials&rdquo;) to be used; provided, however, that materials specified must conform to Broadridge print and insert equipment specifications. <strong>Broadridge shall be responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes</strong>, except where Client is responsible for Materials as specified in Section 3.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Contract summary table
+html += '        <div class="table-wrap" style="margin-bottom:24px;"><table>\n'
+html += '            <thead><tr><th>Period</th><th>Envelope Wastage</th><th>Margin</th><th>Effective Rate</th><th>Billing Basis (Contract)</th></tr></thead>\n'
+html += '            <tbody>\n'
+html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash;</td><td>5.0% over vendor</td><td>Usage</td></tr>\n'
+html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>\n'
+html += '            </tbody>\n'
+html += '        </table></div>\n'
+
+# Envelope specifications
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Envelope specifications</h3>\n'
 html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        <div class="table-wrap"><table>\n'
 html += '            <thead><tr><th>WMS Code</th><th>Mail Type</th><th>Size</th><th>Style</th><th>Postage</th><th>Notes</th></tr></thead>\n'
