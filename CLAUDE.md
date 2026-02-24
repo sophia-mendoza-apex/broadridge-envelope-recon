@@ -1278,6 +1278,44 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
 ```
 
+### 2026-02-24 (session 16 — part 5)
+
+**Accomplished:**
+- Added Wastage and Adj. Variance columns to both the By Type (grouped) and By SKU tables in the Broadridge report
+- Computed `wastage_by_type_dict` from monthly usage-by-type data using per-month wastage rate (5% pre-2024, 2% post-2024)
+- All three data sections (Monthly Detail, By Type, By SKU) now use consistent wastage-adjusted methodology
+- Renamed "Variance" → "Adj. Variance" in type table headers to match Monthly Detail
+
+**Cross-section consistency (post-settlement totals):**
+| Section | Purchased | Used | Wastage | Adj. Variance | Var% |
+|---------|-----------|------|---------|---------------|------|
+| Summary KPIs | 21,039,500 | 18,469,949 | 690,713 | 1,878,838 | 8.9% |
+| Monthly Detail (grand total) | 21,039,500 | 18,469,949 | 690,713 | 1,878,838 | 8.9% |
+| By Type (total) | 21,039,500 | 18,469,949 | 690,603 | 1,878,948 | 8.9% |
+| By SKU (total) | 21,039,500 | 18,469,949 | 690,603 | 1,878,948 | 8.9% |
+
+**Note:** 110-envelope rounding difference between Monthly Detail (690,713 wastage) and By Type/SKU (690,603) is from per-month aggregate vs per-SKU per-month rounding. Both within 0.02%.
+
+**Commits this session (all):**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+- `857d3ab` — docs: Update CLAUDE.md with session 16
+- `d03fc54` — feat: Align Broadridge report with internal — full scope reconciliation
+- `4fb0be5` — docs: Update CLAUDE.md and regenerated Broadridge HTML
+- `7451ee3` — fix: Remove client filter and monthly trend from Broadridge report
+- `25633cb` — docs: Update CLAUDE.md with session 16 part 2
+- `f3ffe60` — fix: Remove sensitive items from Broadridge report before sharing
+- `ae44593` — docs: Update CLAUDE.md with session 16 part 3
+- `8ec6d05` — fix: Add wastage email quotes and remove envelope specs
+- `43ef65d` — docs: Update CLAUDE.md with session 16 part 4
+- `1726ee4` — fix: Add wastage columns to By Type and By SKU tables
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
 **Next Steps:**
 - [ ] Review Broadridge report in Outlook inbox; decide if ready to send
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
