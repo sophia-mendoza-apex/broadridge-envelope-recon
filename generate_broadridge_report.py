@@ -13,8 +13,8 @@ EXCEL_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation - Source Data.xlsx"
 HTML_PATH = os.path.join(BASE_DIR, "Broadridge Envelope Reconciliation - For Review.html")
 
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
-by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
-usage_by_env_type = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
+by_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
+usage_by_env_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
 
 print("Data loaded successfully.")
 
@@ -102,7 +102,15 @@ for _, r in post.iterrows():
     post_yearly[yr][1] += safe(r["Envelopes Used (Volume)"])
     post_yearly[yr][2] += 1
 
-# Envelope type lookups
+# Envelope type lookups — filtered to post-settlement
+post_type_mask = by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
+by_type = by_type_monthly[post_type_mask].groupby("Envelope Type", as_index=False).agg({"Purchased": "sum"})
+by_type.rename(columns={"Purchased": "Total Purchased"}, inplace=True)
+
+post_usage_type_mask = usage_by_env_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
+usage_by_env_type = usage_by_env_type_monthly[post_usage_type_mask].groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
+usage_by_env_type.rename(columns={"Envelopes Used": "Total Envelopes Used"}, inplace=True)
+
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
 purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))

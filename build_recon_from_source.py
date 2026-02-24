@@ -997,12 +997,11 @@ def build_output():
             elif c in (8,9): cell.number_format = num_fmt_currency
     auto_width(ws2)
 
-    # === TAB 3: By Envelope Type ===
+    # === TAB 3: By Envelope Type (monthly breakdown) ===
     ws3 = wb.create_sheet("By Envelope Type")
-    headers3 = ["Envelope Type", "Total Purchased", "Total Cost", "Avg Unit Price",
-                "First Purchase", "Last Purchase"]
+    headers3 = ["Month", "Envelope Type", "Purchased", "Total Cost"]
     style_header(ws3, headers3)
-    by_type = defaultdict(lambda: [0, 0.0, [], None, None])
+    by_type_monthly = defaultdict(lambda: [0, 0.0])  # (month_key, env_type) -> [qty, cost]
     excluded_non_apex = 0
     for rec in purchase_records:
         if rec["month_key"] < START_MONTH_KEY: continue
@@ -1010,24 +1009,18 @@ def build_output():
         if d is None:
             excluded_non_apex += rec["qty_ordered"]
             continue  # Non-Apex envelope (Fidelity, HSBC, Morgan Stanley)
-        by_type[d][0] += rec["qty_ordered"]
-        by_type[d][1] += rec["total_cost"]
-        by_type[d][2].append(rec["unit_price"])
-        pd_val = rec["po_date"]
-        if by_type[d][3] is None or pd_val < by_type[d][3]: by_type[d][3] = pd_val
-        if by_type[d][4] is None or pd_val > by_type[d][4]: by_type[d][4] = pd_val
+        key = (rec["month_key"], d)
+        by_type_monthly[key][0] += rec["qty_ordered"]
+        by_type_monthly[key][1] += rec["total_cost"]
     if excluded_non_apex:
         print(f"  Non-Apex envelopes excluded from By Type: {excluded_non_apex:,}")
-    for i, (etype, vals) in enumerate(sorted(by_type.items()), 2):
-        avg_price = sum(vals[2]) / len(vals[2]) if vals[2] else 0
-        first_dt = vals[3].strftime("%m/%d/%Y") if vals[3] else ""
-        last_dt = vals[4].strftime("%m/%d/%Y") if vals[4] else ""
-        row_data = [etype, vals[0], vals[1], avg_price, first_dt, last_dt]
+    for i, ((mk, etype), vals) in enumerate(sorted(by_type_monthly.items()), 2):
+        row_data = [month_key_to_label(mk), etype, vals[0], vals[1]]
         for c, val in enumerate(row_data, 1):
             cell = ws3.cell(row=i, column=c, value=val)
             cell.border = thin_border
-            if c == 2: cell.number_format = num_fmt_int
-            elif c in (3,4): cell.number_format = num_fmt_currency
+            if c == 3: cell.number_format = num_fmt_int
+            elif c == 4: cell.number_format = num_fmt_currency
     auto_width(ws3)
 
     # === TAB 3b: Usage by Product ===
@@ -1052,11 +1045,11 @@ def build_output():
             if c == 2: cell.number_format = num_fmt_int
     auto_width(ws3b)
 
-    # === TAB 3c: Usage by Envelope Type ===
+    # === TAB 3c: Usage by Envelope Type (monthly breakdown) ===
     ws3c = wb.create_sheet("Usage by Envelope Type")
-    headers3c = ["Envelope Type", "Total Envelopes Used"]
+    headers3c = ["Month", "Envelope Type", "Envelopes Used"]
     style_header(ws3c, headers3c)
-    usage_by_env_type = defaultdict(int)
+    usage_by_env_type_monthly = defaultdict(int)
     for rec in volume_records:
         if rec["month_key"] < START_MONTH_KEY: continue
         env_type = map_usage_to_envelope_type(
@@ -1065,13 +1058,13 @@ def build_output():
             rec.get("address_type", ""),
             rec.get("month_key", "")
         )
-        usage_by_env_type[env_type] += rec["envelopes"]
-    for i, (etype, total_used) in enumerate(sorted(usage_by_env_type.items(), key=lambda x: -x[1]), 2):
-        row_data = [etype, total_used]
+        usage_by_env_type_monthly[(rec["month_key"], env_type)] += rec["envelopes"]
+    for i, ((mk, etype), total_used) in enumerate(sorted(usage_by_env_type_monthly.items()), 2):
+        row_data = [month_key_to_label(mk), etype, total_used]
         for c, val in enumerate(row_data, 1):
             cell = ws3c.cell(row=i, column=c, value=val)
             cell.border = thin_border
-            if c == 2: cell.number_format = num_fmt_int
+            if c == 3: cell.number_format = num_fmt_int
     auto_width(ws3c)
 
     # === TAB 4: Purchase Detail ===

@@ -979,3 +979,36 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-23 (session 14 continued)
+
+**Accomplished:**
+- Fixed variance mismatch between sections in Broadridge report — By Type section was showing full-period totals (30M/26.4M/+3.7M) while Summary and Monthly Detail showed post-settlement (21M/18.5M/+2.6M)
+- Added monthly granularity to `By Envelope Type` and `Usage by Envelope Type` Excel tabs in `build_recon_from_source.py` — previously these were full-period aggregates with no month column
+- Broadridge report now filters type data to post-settlement (Mar 2022+) before aggregating
+- Internal report continues to use full-period type data (unchanged behavior)
+- All sections in Broadridge report now consistently show: **21,039,500 purchased / 18,469,949 used / +2,569,551 variance (+12.2%)**
+
+**Schema change — `By Envelope Type` tab:**
+- Before: `Envelope Type | Total Purchased | Total Cost | Avg Unit Price | First Purchase | Last Purchase` (9 rows)
+- After: `Month | Envelope Type | Purchased | Total Cost` (~350 rows, monthly detail)
+
+**Schema change — `Usage by Envelope Type` tab:**
+- Before: `Envelope Type | Total Envelopes Used` (8 rows)
+- After: `Month | Envelope Type | Envelopes Used` (~400 rows, monthly detail)
+
+**How to refresh outputs:**
+```bash
+# Step 1: Rebuild Excel (required if source data changes)
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+
+# Step 2: Regenerate reports
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation

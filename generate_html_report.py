@@ -12,9 +12,15 @@ EXCEL_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation - Source Data.xlsx"
 HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
-by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
+by_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
 usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
-usage_by_env_type = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
+usage_by_env_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
+
+# Aggregate type-level data to full-period totals (internal report uses full period)
+by_type = by_type_monthly.groupby("Envelope Type", as_index=False).agg({"Purchased": "sum", "Total Cost": "sum"})
+by_type.rename(columns={"Purchased": "Total Purchased"}, inplace=True)
+usage_by_env_type = usage_by_env_type_monthly.groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
+usage_by_env_type.rename(columns={"Envelopes Used": "Total Envelopes Used"}, inplace=True)
 
 print("Data loaded successfully.")
 
