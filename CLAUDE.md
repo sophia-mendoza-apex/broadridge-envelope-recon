@@ -1124,3 +1124,56 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 16 continued)
+
+**Accomplished:**
+- Aligned Broadridge report with internal report — both now use wastage-adjusted variance
+- Added full scope of analysis to Broadridge report for complete reconciliation package
+
+**Broadridge report changes (generate_broadridge_report.py):**
+- Added wastage computation (`get_wastage_rate()`, 5% pre-2024, 2% post-2024)
+- Updated KPI cards: "Used + Wastage" replaces raw "Used", variance now wastage-adjusted
+- Added Wastage column to year-by-year table and monthly detail table
+- Added Invoiced column to year-by-year table
+- Added wastage observation box (contractual vs operational rates, excess calculation)
+- Added pre-settlement context (Jan 2020-Feb 2022, $643K settlement reference)
+- Added data sources & methodology section (63 purchase files, 50 billing files, dedup method, mapping logic)
+- Added full contract terms: Section 4 (original + amendment) and Section 8 (materials obligation)
+- Added contract summary table (period, wastage rate, margin, effective rate, billing basis)
+- Added NI/PFC transition context to By Type section
+- Added footnote explaining wastage methodology and formula definitions
+
+**Variance alignment (both reports now consistent):**
+| Metric | Internal | Broadridge | Delta |
+|--------|----------|------------|-------|
+| Purchased | 21,039,500 | 21,039,500 | 0 |
+| Used + Wastage | 19,160,683 | 19,160,662 | 21 (rounding) |
+| Variance | 1,878,817 | 1,878,838 | 21 (rounding) |
+
+**Rounding note:** 21-envelope difference is from internal computing wastage per-SKU per-month vs Broadridge computing per-month aggregate. Both within 0.001%.
+
+**Broadridge report structure (current):**
+1. Summary (4 KPIs + year-by-year with wastage & invoiced + billing basis box + wastage observation + pre-settlement context)
+2. Monthly Trend (SVG bar chart)
+3. Monthly Detail (7 columns: Month, Purchased, Used, Wastage, Adj. Variance, Var%, Running Balance)
+4. Purchases & Usage by Envelope Type (grouped table + NI/PFC transition context + SKU breakdown)
+5. Reference (data sources & methodology + contract terms Section 4 & 8 + contract summary table + envelope specs)
+
+**Commits this session:**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+- `857d3ab` — docs: Update CLAUDE.md with session 16
+- `d03fc54` — feat: Align Broadridge report with internal — full scope reconciliation
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
