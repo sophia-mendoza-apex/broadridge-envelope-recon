@@ -131,13 +131,9 @@ for _, r in post.iterrows():
     post_yearly[yr][4] += safe(r["Invoiced Amount"])
     post_yearly[yr][5] += w
 
-# Post-settlement cost totals and billing basis analysis
+# Post-settlement cost totals
 post_invoiced = post["Invoiced Amount"].sum()
 post_cost = post["Purchase Cost"].sum()
-avg_inv_per_unit = post_invoiced / post_purchased if post_purchased else 0
-usage_based_invoice = post_used * avg_inv_per_unit
-billing_excess = post_invoiced - usage_based_invoice
-zero_purchase_usage_months = len(post[(post["Envelopes Purchased"] == 0) & (post["Envelopes Used (Volume)"] > 0)])
 
 # Full-period totals (for context)
 total_purchased = int(monthly["Envelopes Purchased"].sum())
@@ -667,24 +663,6 @@ html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td></tr>\
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 
-# Billing basis observation
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:20px;border-left:4px solid #5B9BF7;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Billing basis &mdash; for discussion</p>\n'
-html += f'            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 8px;">Per Section 4 of both the original contract (Jan 2019) and Amendment No. 1 (Jan 2024), '
-html += f'generic envelope stock is to be billed <strong>&ldquo;based on usage.&rdquo;</strong> '
-html += f'Our review of D17 invoices indicates that envelope charges align with purchase/receipt volumes rather than usage volumes.</p>\n'
-html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Invoiced (receipt-based)</td>'
-html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_money(post_invoiced)}</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">If billed on usage (per contract)</td>'
-html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_money(usage_based_invoice)}</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Difference</td>'
-html += f'<td style="border:none;padding:4px 0;color:#82B4FF;font-weight:600;">{fmt_money(billing_excess)}</td></tr>\n'
-html += '            </table>\n'
-html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">We would like to discuss aligning the billing methodology with the contractual terms. '
-html += f'{zero_purchase_usage_months} months had zero purchases but significant usage, with $0 invoiced for those periods.</p>\n'
-html += '        </div>\n'
-
 # Wastage observation
 html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:16px;border:1px solid #2A2B30;">\n'
 html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Wastage &mdash; contractual vs. operational</p>\n'
@@ -706,7 +684,7 @@ html += '        </div>\n'
 # Pre-settlement context
 html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
 html += f'            <strong style="color:#E0E1E6;">Pre-settlement context (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
-html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement (GTO Proxy &amp; BPS Early Renewal Term Sheet, June 2022). '
+html += f'These costs were absorbed by Broadridge per the pass-through paper and envelope dispute settlement. '
 html += f'<strong style="color:#E0E1E6;">Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
 html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} variance.\n'
 html += '        </div>\n'
@@ -773,8 +751,6 @@ html += '            <table style="width:auto;background:transparent;font-size:1
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Reconciliation period</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">January 2020 &ndash; December 2025 (post-settlement focus: March 2022+)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{purchase_files} files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Supplementary source</td><td style="border:none;padding:4px 0;color:#E0E1E6;">2019&ndash;2022 Purchases.xlsx (consolidated PO history, used to fill Jun 2020 gap)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Deduplication</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Two-pass: (1) same-source by date+description+qty, (2) cross-source by PO number</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
 html += '            </table>\n'
