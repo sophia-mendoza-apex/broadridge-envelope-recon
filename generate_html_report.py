@@ -770,11 +770,45 @@ def build_monthly_detail_json():
         if has_data:
             data[sku] = sku_rows
 
-    return data
+    # Combined groups — merge related SKUs that are physically interchangeable
+    COMBINED_GROUPS = {
+        "GRP_10_CONFIRMS": {
+            "label": "#10 Confirms + Letters (NI + PFC combined)",
+            "skus": ["ENVAPXN10 Confirms+Letters (PFC)", "ENVCONPFSN10NI"],
+        },
+        "GRP_N14_STMTS": {
+            "label": "N14 Fold Statements (PFC + NI combined)",
+            "skus": ["ENVMEAPEXN14PFC", "ENVMERIDGEN14NI11/08"],
+        },
+        "GRP_9X12_STMTS": {
+            "label": "9x12 Flat Statements (PFC + NI combined)",
+            "skus": ["ENVMEAPEX9X12PFC", "ENVMERIDGE9X12NI11/08"],
+        },
+    }
+    for grp_key, grp in COMBINED_GROUPS.items():
+        grp_rows = []
+        for m in post_months_list:
+            p = sum(purch_lookup.get((m, s), 0) for s in grp["skus"])
+            u = sum(usage_lookup.get((m, s), 0) for s in grp["skus"])
+            if p == 0 and u == 0:
+                continue
+            w_rate = get_wastage_rate(m)
+            w = int(u * w_rate)
+            v = p - u - w
+            vpct = round(v / p, 4) if p else 0
+            grp_rows.append({"m": m, "p": p, "u": u, "w": w, "v": v, "vp": vpct})
+        if grp_rows:
+            data[grp_key] = grp_rows
 
-monthly_detail_json = _json.dumps(build_monthly_detail_json())
+    return data, COMBINED_GROUPS
+
+_detail_data, _combined_groups = build_monthly_detail_json()
+monthly_detail_json = _json.dumps(_detail_data)
 # Build display name map for dropdown
 sku_display_map = {"ALL": "All envelope types (combined)"}
+# Add combined groups first (so they appear near their individual SKUs)
+for gk, gv in _combined_groups.items():
+    sku_display_map[gk] = gv["label"]
 sku_display_map.update({d[0]: d[1] for d in sku_buffer_data})
 sku_dropdown_json = _json.dumps(sku_display_map)
 
@@ -1337,21 +1371,48 @@ html += f'var monthlyData = {monthly_detail_json};\n'
 html += f'var skuNames = {sku_dropdown_json};\n'
 html += """
 (function() {
-    // Populate dropdown
+    // Populate dropdown with optgroups
     var sel = document.getElementById('sku-filter');
     var keys = Object.keys(monthlyData);
-    // Put ALL first, then sort rest by display name
-    var skuKeys = keys.filter(function(k) { return k !== 'ALL'; });
+
+    // ALL option first
+    var allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = skuNames['ALL'];
+    sel.appendChild(allOpt);
+
+    // Combined groups
+    var grpKeys = keys.filter(function(k) { return k.indexOf('GRP_') === 0; });
+    if (grpKeys.length > 0) {
+        var grpGroup = document.createElement('optgroup');
+        grpGroup.label = 'Combined (domestic + foreign)';
+        grpKeys.sort(function(a, b) {
+            return (skuNames[a] || a).localeCompare(skuNames[b] || b);
+        });
+        grpKeys.forEach(function(key) {
+            var opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = skuNames[key] || key;
+            grpGroup.appendChild(opt);
+        });
+        sel.appendChild(grpGroup);
+    }
+
+    // Individual SKUs
+    var skuKeys = keys.filter(function(k) { return k !== 'ALL' && k.indexOf('GRP_') !== 0; });
     skuKeys.sort(function(a, b) {
         return (skuNames[a] || a).localeCompare(skuNames[b] || b);
     });
-    skuKeys.unshift('ALL');
+    var skuGroup = document.createElement('optgroup');
+    skuGroup.label = 'Individual SKUs';
     skuKeys.forEach(function(key) {
         var opt = document.createElement('option');
         opt.value = key;
         opt.textContent = skuNames[key] || key;
-        sel.appendChild(opt);
+        skuGroup.appendChild(opt);
     });
+    sel.appendChild(skuGroup);
+
     // Initial render
     filterMonthlyDetail('ALL');
 })();
