@@ -1555,6 +1555,16 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - Internal: 1,878,838 / 289,884/mo (used + wastage) = 6.5 — more conservative, appropriate for internal planning
 - Broadridge: 1,878,838 / 284,200/mo (used only) = 6.6 — simpler denominator for external audience
 
+**Page break fix:**
+- Added `page-break-inside: avoid` on all rounded content boxes, tables, blockquotes
+- Added `page-break-after: avoid` on `h3` to keep headings attached to content
+- Removed section-level `page-break-inside: avoid` (Reference section too large for one page)
+
+**All commits this session (session 19):**
+- `c4d5a1f` — fix: Resolve numerical inconsistencies across Broadridge report
+- `b749c4e` — fix: Align internal and Broadridge reports - consistent numbers and clearer wastage box
+- `e16cb38` — fix: Add print page-break rules to prevent content boxes splitting across pages
+
 **How to refresh outputs:**
 ```bash
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
