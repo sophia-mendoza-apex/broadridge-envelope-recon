@@ -368,39 +368,11 @@ def build_sku_recon_rows():
 # ---------------------------------------------------------------------------
 # Envelope Specifications
 # ---------------------------------------------------------------------------
-ENVELOPE_SPECS = [
-    ("ENVMEAPEXN14PFC", "926131", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Domestic Fold Statement", "Pre-Sorted First-Class", "24WW", "All domestic monthly/quarterly account statements that fold into the envelope"),
-    ("ENVMEAPEX9X12PFC", "830851", "9 x 12", "Flat", "Domestic Flat Statement", "Pre-Sorted First-Class", "24WW", "Domestic statements too large to fold (high page count)"),
-    ("ENVMERIDGEN14NI11/08", "942095", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Foreign Fold Statement", "No Imprint", "24WW", "Foreign statements &mdash; postage applied at mailing"),
-    ("ENVMERIDGE9X12NI11/08", "823804", "9 x 12", "Flat", "Foreign Flat Statement", "No Imprint", "24WW", "Foreign flat statements &mdash; postage applied at mailing"),
-    ("ENVAPXN10PFSCONN10IND(10/22)", "992124", '4&frac18; x 9&frac12;', "#10 Booklet", "Domestic Confirms + Letters", "Pre-Sorted First-Class", "24WW", "Replaced ENVCONPFSN10NI in Oct 2022 &mdash; updated postal permit"),
-    ("ENVCONPFSN10NI", "856743", '4&frac18; x 9&frac12;', "#10 Booklet", "Foreign Confirms + Letters", "No Imprint", "24WW", "Foreign confirms and letters &mdash; postage applied at mailing"),
-    ("ENVCONRIDGE9X12DW", "818105", "9 x 12", "Flat", "Flat Confirms (Dom. + Foreign)", "No Imprint", "24WW", "Oversize confirms that cannot fold into #10 envelope"),
-]
-
-def build_envelope_spec_rows():
-    rows = []
-    for wms, order, size, style, mail_type, postage, paper, notes in ENVELOPE_SPECS:
-        postage_cls = "flag-under" if "Pre-Sorted" in postage else "flag-ok"
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name" style="font-weight:600;font-size:12px;font-family:monospace">{wms}</td>'
-            + f'<td>{mail_type}</td>'
-            + f'<td>{size}</td>'
-            + f'<td>{style}</td>'
-            + f'<td><span class="{postage_cls}">{postage}</span></td>'
-            + f'<td style="font-size:12px;white-space:normal;max-width:240px">{notes}</td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
-# ---------------------------------------------------------------------------
 # Build all data components
 # ---------------------------------------------------------------------------
 monthly_rows = build_monthly_rows()
 combined_env_rows = build_combined_env_rows()
 sku_recon_rows = build_sku_recon_rows()
-envelope_spec_rows = build_envelope_spec_rows()
 
 post_var_color = "#4CAF79" if post_variance >= 0 else "#EF5350"
 post_var_pct = post_variance / post_purchased if post_purchased else 0
@@ -681,6 +653,21 @@ html += '            </table>\n'
 html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Per Section 4, excess wastage beyond the contractual rate is Broadridge&rsquo;s responsibility. We would like to confirm the current operational wastage rate and how it is reflected in invoicing.</p>\n'
 html += '        </div>\n'
 
+# Broadridge confirmation — wastage rates (Denci + Koebel emails)
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Broadridge confirmation &mdash; wastage rates</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Christopher Denci (ICS Account Manager), email to Terry Ray, August 23, 2023.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;The current agreement reflects Inventory Cost Plus 10% margin. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> Generic stock (envelopes): unit rate billed based on usage. Client-specific stock: unit rate billed based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>\n'
+html += '                &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)\n'
+html += '            </blockquote>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
+html += '        </div>\n'
+
 # Pre-settlement context
 html += f'        <div style="background:#1E1F23;border-radius:12px;padding:16px 24px;margin-top:16px;border:1px solid #2A2B30;font-size:13px;color:#9A9BA0;line-height:1.7;">\n'
 html += f'            <strong style="color:#E0E1E6;">Pre-settlement context (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
@@ -794,19 +781,6 @@ html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</t
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 
-# Envelope specifications
-html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Envelope specifications</h3>\n'
-html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
-html += '        <div class="table-wrap"><table>\n'
-html += '            <thead><tr><th>WMS Code</th><th>Mail Type</th><th>Size</th><th>Style</th><th>Postage</th><th>Notes</th></tr></thead>\n'
-html += '            <tbody>\n' + envelope_spec_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#9A9BA0;">\n'
-html += '            <span><strong>PFC</strong> = Pre-printed First-Class permit (domestic)</span>\n'
-html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; postage applied at mailing)</span>\n'
-html += '            <span><strong>DW</strong> = Double Window</span>\n'
-html += '            <span><strong>IND</strong> = Individual (Oct 2022 revision)</span>\n'
-html += '        </div>\n'
 html += '    </div>\n</div>\n\n'
 
 html += '</div><!-- end .content -->\n\n'
