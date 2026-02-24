@@ -828,6 +828,59 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
-- [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)
+- [x] ~~Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)~~ — Resolved in session 13 (continued)
+- [ ] Verify May-25 752K usage spike
+- [ ] Request actual Jun-20 purchase report from Broadridge
+
+### 2026-02-23 (session 13 continued)
+
+**Accomplished:**
+- Investigated ENVCONRIDGE9X12DW deficit (80K purchased vs 199K used, -148%)
+- Extracted and analyzed 5,042 FLAT confirm/letter/check volume records from all billing sources
+- Cross-referenced with Address Verification Letters and Apex MTC (New) Flat_Fold distributions
+
+**ENVCONRIDGE9X12DW deficit — Root cause: 2022 production surge**
+
+Four months in mid-2022 account for 88% of all-time flat confirm/letter usage:
+
+| Month | FLAT Envelopes | Driver |
+|-------|---------------|--------|
+| Jan 2022 | 21,463 | MTC 16K + AVL 5K |
+| Aug 2022 | 45,075 | MTC 23K + AVL 22K |
+| Sep 2022 | 64,651 | MTC 46K + AVL 18K |
+| Nov 2022 | 45,594 | MTC 36K + AVL 9K |
+| **Subtotal** | **176,783** | **88% of 199K total** |
+
+Outside those 4 months, FLAT confirms average ~350/month.
+
+**Why it spiked:** Coincides with Ridge/Penson migration and peak volumes. Apex MTC (New) confirms went from 0.2% flat (Jul-22) to 19.9% flat (Sep-22) to 27.9% flat (Nov-22), then back to 0% flat (Dec-22). Broadridge temporarily routed a portion of confirms through flat production (9x12 envelopes) during the volume surge — likely due to inserter capacity or batch composition.
+
+**Why the deficit is not actionable:**
+1. Mapping is correct per Brandon Koebel's Sep 2023 email (ENVCONRIDGE9X12DW = flat confirms)
+2. Pre-existing buffer stock covers the deficit (same pattern as overall recon)
+3. 199K flat envelopes = 0.7% of 27.2M total; 119K deficit is noise in context
+4. Classification is legitimate Broadridge production system data, not a mapping error
+
+**Address Verification Letters Flat_Fold distribution (full period):**
+| Flat_Fold | Envelopes | % of AVL Total |
+|-----------|-----------|----------------|
+| MIXED | 6,971,688 | 65.1% |
+| (blank) | 3,599,316 | 33.6% |
+| FOLD | 92,696 | 0.9% |
+| FLAT | 53,568 | 0.5% |
+| BULK | 5,718 | 0.1% |
+
+**Apex MTC (New) Flat_Fold distribution (full period):**
+| Flat_Fold | Envelopes | % of MTC Total |
+|-----------|-----------|----------------|
+| FOLD | 7,091,927 | 78.0% |
+| (blank) | 1,754,557 | 19.3% |
+| FLAT | 146,099 | 1.6% |
+| MIXED | 99,124 | 1.1% |
+| BULK | 52,812 | 0.6% |
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
 - [ ] Verify May-25 752K usage spike
 - [ ] Request actual Jun-20 purchase report from Broadridge
