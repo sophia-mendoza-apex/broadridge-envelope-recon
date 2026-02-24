@@ -205,54 +205,6 @@ ENVELOPE_GROUPS = [
 ]
 
 # ---------------------------------------------------------------------------
-# SVG bar chart (purchased vs used, post-settlement)
-# ---------------------------------------------------------------------------
-def build_svg_chart():
-    months = post["Month"].tolist()
-    purchased = post["Envelopes Purchased"].tolist()
-    used = post["Envelopes Used (Volume)"].tolist()
-    n = len(months)
-    if n == 0:
-        return ""
-    cw, ch = 1200, 400
-    ml, mr, mt, mb = 80, 30, 50, 80
-    pw = cw - ml - mr
-    ph = ch - mt - mb
-    max_val = max(max(purchased), max(used)) * 1.1
-    bgw = pw / n
-    bw = bgw * 0.35
-    L = []
-    L.append(f'<svg viewBox="0 0 {cw} {ch}" style="width:100%;max-width:{cw}px;height:auto;" xmlns="http://www.w3.org/2000/svg">')
-    L.append(f'<rect width="{cw}" height="{ch}" fill="#1E1F23" rx="12"/>')
-    for i in range(6):
-        yv = max_val * i / 5
-        yp = mt + ph - (ph * i / 5)
-        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw - mr}" y2="{yp:.1f}" stroke="#2A2B30" stroke-width="1"/>')
-        lb = f"{yv / 1000000:.1f}M" if yv >= 1000000 else f"{yv / 1000:.0f}K"
-        L.append(f'<text x="{ml - 8}" y="{yp + 4:.1f}" text-anchor="end" fill="#9A9BA0" font-size="11" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
-    for i in range(n):
-        xc = ml + (i + 0.5) * bgw
-        hp = (purchased[i] / max_val) * ph if max_val > 0 else 0
-        xp = xc - bw - 1
-        yp = mt + ph - hp
-        L.append(f'<rect x="{xp:.1f}" y="{yp:.1f}" width="{bw:.1f}" height="{hp:.1f}" fill="#2954F0" rx="2"><title>{months[i]} Purchased: {int(purchased[i]):,}</title></rect>')
-        hu = (used[i] / max_val) * ph if max_val > 0 else 0
-        xu = xc + 1
-        yu = mt + ph - hu
-        L.append(f'<rect x="{xu:.1f}" y="{yu:.1f}" width="{bw:.1f}" height="{hu:.1f}" fill="#5B9BF7" rx="2"><title>{months[i]} Used: {int(used[i]):,}</title></rect>')
-        if i % 3 == 0:
-            ly = mt + ph + 20
-            L.append(f'<text x="{xc:.1f}" y="{ly}" text-anchor="middle" fill="#9A9BA0" font-size="10" font-family="Helvetica Neue,Arial,sans-serif" transform="rotate(-45 {xc:.1f} {ly})">{months[i]}</text>')
-    lx = ml + 10
-    ly2 = mt - 25
-    L.append(f'<rect x="{lx}" y="{ly2}" width="14" height="14" fill="#2954F0" rx="2"/>')
-    L.append(f'<text x="{lx + 20}" y="{ly2 + 12}" fill="#82B4FF" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Purchased</text>')
-    L.append(f'<rect x="{lx + 110}" y="{ly2}" width="14" height="14" fill="#5B9BF7" rx="2"/>')
-    L.append(f'<text x="{lx + 130}" y="{ly2 + 12}" fill="#82B4FF" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Used (Volume)</text>')
-    L.append("</svg>")
-    return "\n".join(L)
-
-# ---------------------------------------------------------------------------
 # Monthly detail rows (post-settlement) with annual subtotals and grand total
 # ---------------------------------------------------------------------------
 def build_monthly_rows():
@@ -449,7 +401,6 @@ def build_envelope_spec_rows():
 # ---------------------------------------------------------------------------
 # Build all data components
 # ---------------------------------------------------------------------------
-svg_chart = build_svg_chart()
 monthly_rows = build_monthly_rows()
 combined_env_rows = build_combined_env_rows()
 sku_recon_rows = build_sku_recon_rows()
@@ -664,7 +615,6 @@ html += '</div>\n'
 # --- Nav ---
 html += '<nav class="nav">\n'
 html += '    <a href="#summary">Summary</a>\n'
-html += '    <a href="#monthly-trend">Trend</a>\n'
 html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
 html += '    <a href="#envelope-types">By Type</a>\n'
 html += '    <a href="#reference">Reference</a>\n'
@@ -764,19 +714,7 @@ html += '        </div>\n'
 html += '    </div>\n'
 html += '</div>\n\n'
 
-# ===== SECTION 2: MONTHLY TREND =====
-html += '<div class="section" id="monthly-trend">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Monthly trend</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-html += '        <div style="background:#1E1F23;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);">\n'
-html += svg_chart
-html += '\n        </div>\n'
-html += '    </div>\n</div>\n\n'
-
-# ===== SECTION 3: MONTHLY DETAIL (expanded by default) =====
+# ===== SECTION 2: MONTHLY DETAIL (expanded by default) =====
 html += '<div class="section" id="monthly-detail">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
 html += '        <h2>Monthly detail</h2>\n'
@@ -836,7 +774,6 @@ html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;colo
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Purchase reports processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{purchase_files} files (monthly Broadridge Purchase Reports, FY&rsquo;20&ndash;FY&rsquo;25)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Supplementary source</td><td style="border:none;padding:4px 0;color:#E0E1E6;">2019&ndash;2022 Purchases.xlsx (consolidated PO history, used to fill Jun 2020 gap)</td></tr>\n'
-html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Client filter</td><td style="border:none;padding:4px 0;color:#E0E1E6;">APEX, Ridge Clearing, Penson/Pension Financial (excludes Broadridge internal, Fidelity, HSBC, Morgan Stanley)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Deduplication</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Two-pass: (1) same-source by date+description+qty, (2) cross-source by PO number</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#E0E1E6;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
