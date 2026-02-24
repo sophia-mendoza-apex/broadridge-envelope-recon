@@ -184,6 +184,11 @@ _last_12 = post.tail(12)
 _trailing_avg = int(_last_12["Envelopes Used (Volume)"].mean())
 _buffer_months = post_variance / _trailing_avg if _trailing_avg else 0
 
+# Usage decline calculation (2022 avg vs 2025 avg)
+_2022_avg = post_yearly[2022][1] / post_yearly[2022][2] if post_yearly[2022][2] else 0
+_2025_avg = post_yearly[2025][1] / post_yearly[2025][2] if post_yearly[2025][2] else 0
+_usage_decline_pct = (_2022_avg - _2025_avg) / _2022_avg if _2022_avg else 0
+
 # Envelope type lookups — filtered to post-settlement
 post_type_mask = by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
 by_type = by_type_monthly[post_type_mask].groupby("Envelope Type", as_index=False).agg({"Purchased": "sum"})
@@ -521,9 +526,11 @@ html += '        <div style="background:#F5F5F7;border-radius:8px;padding:18px 2
 html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Excess inventory</p>\n'
 html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">After accounting for contractual wastage, post-settlement purchases exceed adjusted usage by <strong>{fmt_num(post_variance)} envelopes</strong>. '
 html += f'At the trailing 12-month average usage of {fmt_num(_trailing_avg)}/month, this represents approximately <strong>{_buffer_months:.1f} months</strong> of buffer stock.</p>\n'
-html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">Broadridge has stated a policy of maintaining 2&ndash;3 months of envelope supply (Brandon Koebel, Nov 2022). '
+html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">Average monthly usage has declined <strong>{_usage_decline_pct * 100:.0f}%</strong> since 2022 '
+html += f'(from {fmt_num(int(_2022_avg))}/month to {fmt_num(int(_2025_avg))}/month in 2025). '
+html += f'Broadridge has stated a policy of maintaining 2&ndash;3 months of envelope supply (Brandon Koebel, Nov 2022). '
 html += f'Section 8 requires Broadridge to be &ldquo;responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes.&rdquo;</p>\n'
-html += f'            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">We would like to understand the current inventory position and whether ordering volumes are being adjusted to align with declining usage trends.</p>\n'
+html += f'            <p style="font-size:11px;color:#6D6E71;margin:8px 0 0;">We would like to understand the current inventory position and whether ordering volumes are being adjusted to reflect the {_usage_decline_pct * 100:.0f}% decline in average monthly usage.</p>\n'
 html += '        </div>\n'
 
 # Confirmation questions
@@ -587,6 +594,7 @@ html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;colo
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Billing workbooks processed</td><td style="border:none;padding:4px 0;color:#333;font-weight:600;">{billing_files} files (monthly Billing Workbooks + Billing Master 2020&ndash;2021)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">Usage-to-envelope mapping</td><td style="border:none;padding:4px 0;color:#333;">Product category + Flat_Fold + Address_Type fields from Volume Data (per Brandon Koebel, Sep 2023)</td></tr>\n'
 html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">NI/PFC usage cutover</td><td style="border:none;padding:4px 0;color:#333;">Domestic #10 usage mapped to ENVCONPFSN10NI before Oct 2022, ENVAPXN10 (PFC) after</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;white-space:nowrap;">&ldquo;Used&rdquo; definition</td><td style="border:none;padding:4px 0;color:#333;">Envelopes pulled from warehouse inventory to the production floor, including waste and floor surplus &mdash; not limited to envelopes actually mailed (per Brandon Koebel, Oct 2022)</td></tr>\n'
 html += '            </table>\n'
 html += '        </div>\n'
 
