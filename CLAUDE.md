@@ -1358,6 +1358,40 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 **Commits this session:**
 - `36d7d5b` — feat: Add Wastage % column and generic stock classification to both reports
+- `58941d1` — refactor: Restructure Broadridge report for clearer flow
+
+**Report audit:**
+- Cross-checked both HTML reports (internal + Broadridge) — all source data matches exactly (Purchased, Used, Invoiced at every level)
+- Wastage rounding delta: 21 envelopes at KPI level (0.001%), 131 at SKU total (per-month vs per-SKU-per-month aggregation)
+- Year-by-year variance differs by design: internal = P−U, Broadridge = P−U−W
+
+**Broadridge report restructure (session 17 continued):**
+
+Reviewed report flow as experienced analyst. Identified Summary was doing three jobs (data overview + wastage dispute argument + historical context). Restructured:
+
+| # | Section | Content |
+|---|---------|---------|
+| 1 | **Summary** | Intro sentence + KPI cards + year-by-year table (pure data) |
+| 2 | **Items for review** | Wastage contractual vs. operational (the one ask) |
+| 3 | **By Type** | Grouped table + 9x12 footnote + NI/PFC context + SKU breakdown |
+| 4 | **Reference** | Data sources + contract quotes + contract summary + Koebel quotes + pre-settlement context + generic stock classification |
+
+Changes made:
+- Added intro sentence: "This report presents Apex's reconciliation... for Broadridge's review and validation"
+- Created "Items for review" section with wastage observation (moved from Summary)
+- Moved Koebel email quotes from Summary to Reference (supporting documentation, not argument)
+- Moved pre-settlement context from Summary to Reference (historical context)
+- Removed Tax Form row from grouped table (0 purchased, 1 used = post-settlement filter noise)
+- Added 9x12 Flat Confirms footnote explaining -339% deficit (mid-2022 production surge, 0.7% of volume)
+- Removed Monthly Detail section + `build_monthly_rows()` function (per user request)
+- Removed Monthly Detail nav link
+- Report size: 33.3 KB (down from 54.1 KB)
+
+**Broadridge report structure (final):**
+1. Summary (intro + 4 KPIs + year-by-year with wastage & invoiced)
+2. Items for review (wastage contractual vs. operational + excess calculation + ask)
+3. Purchases & usage by envelope type (4 groups + 9x12 footnote + NI/PFC context + 8 SKUs)
+4. Reference (data sources + 3 contract quotes + contract summary table + Koebel quotes + pre-settlement context + generic stock classification)
 
 **How to refresh outputs:**
 ```bash
@@ -1367,7 +1401,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 ```
 
 **Next Steps:**
-- [ ] Review Broadridge report in Outlook inbox; decide if ready to send
+- [ ] Review Broadridge report; decide if ready to send
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
