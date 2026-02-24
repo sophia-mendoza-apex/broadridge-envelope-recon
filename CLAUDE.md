@@ -1521,6 +1521,39 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 **Commits this session (session 19):**
 - `bb11cee` — docs: Update CLAUDE.md with session 18 continued
 - `c4d5a1f` — fix: Resolve numerical inconsistencies across Broadridge report
+- `43c4486` — docs: Update CLAUDE.md with session 19
+- `b749c4e` — fix: Align internal and Broadridge reports - consistent numbers and clearer wastage box
+
+### 2026-02-24 (session 19 continued)
+
+**Accomplished:**
+- Cross-report audit between internal and Broadridge HTML reports
+- Aligned internal report to match Broadridge: trailing 12-month, wastage rounding fix, Tax Form row visibility
+- Labeled wastage box rows (a), (b), (c) with explicit formula for excess calculation
+
+**Internal report fixes (generate_html_report.py):**
+- Buffer months: trailing 6-month changed to trailing 12-month (all references updated)
+- Wastage rounding: float accumulation with round-at-aggregate, largest SKU adjustment
+- Tax Form row: `u <= 1` changed to `u == 0` (same fix as Broadridge)
+- `_contract_waste`: reuses authoritative `total_wastage_allowance` instead of independent calculation
+
+**Broadridge report fix (generate_broadridge_report.py):**
+- Wastage box rows labeled (a), (b), (c)
+- Excess row now reads "Excess beyond contract (b)-(a) to (c)-(a)" making the subtraction self-evident
+
+**Cross-report alignment (final):**
+| Figure | Internal | Broadridge | Match |
+|--------|----------|------------|-------|
+| Purchased | 21,039,500 | 21,039,500 | OK |
+| Used | 18,469,949 | 18,469,949 | OK |
+| Wastage | 690,713 | 690,713 | OK |
+| Variance | 1,878,838 | 1,878,838 | OK |
+| Used + Wastage | 19,160,662 | 19,160,662 | OK |
+| Buffer months | 6.5 | 6.6 | By design |
+
+**Buffer months difference (by design):**
+- Internal: 1,878,838 / 289,884/mo (used + wastage) = 6.5 — more conservative, appropriate for internal planning
+- Broadridge: 1,878,838 / 284,200/mo (used only) = 6.6 — simpler denominator for external audience
 
 **How to refresh outputs:**
 ```bash
