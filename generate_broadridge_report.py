@@ -57,12 +57,12 @@ def var_color(v):
     try:
         val = float(v)
         if val > 0:
-            return "#186741"
+            return "#4CAF79"
         if val < 0:
-            return "#9D1526"
+            return "#EF5350"
     except (ValueError, TypeError):
         pass
-    return "#6D6E71"
+    return "#9A9BA0"
 
 def safe(v, default=0):
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -163,13 +163,13 @@ def build_svg_chart():
     bw = bgw * 0.35
     L = []
     L.append(f'<svg viewBox="0 0 {cw} {ch}" style="width:100%;max-width:{cw}px;height:auto;" xmlns="http://www.w3.org/2000/svg">')
-    L.append(f'<rect width="{cw}" height="{ch}" fill="#FFFFFF" rx="12"/>')
+    L.append(f'<rect width="{cw}" height="{ch}" fill="#1E1F23" rx="12"/>')
     for i in range(6):
         yv = max_val * i / 5
         yp = mt + ph - (ph * i / 5)
-        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw - mr}" y2="{yp:.1f}" stroke="#E2E2E2" stroke-width="1"/>')
+        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw - mr}" y2="{yp:.1f}" stroke="#2A2B30" stroke-width="1"/>')
         lb = f"{yv / 1000000:.1f}M" if yv >= 1000000 else f"{yv / 1000:.0f}K"
-        L.append(f'<text x="{ml - 8}" y="{yp + 4:.1f}" text-anchor="end" fill="#6D6E71" font-size="11" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
+        L.append(f'<text x="{ml - 8}" y="{yp + 4:.1f}" text-anchor="end" fill="#9A9BA0" font-size="11" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
     for i in range(n):
         xc = ml + (i + 0.5) * bgw
         hp = (purchased[i] / max_val) * ph if max_val > 0 else 0
@@ -179,16 +179,16 @@ def build_svg_chart():
         hu = (used[i] / max_val) * ph if max_val > 0 else 0
         xu = xc + 1
         yu = mt + ph - hu
-        L.append(f'<rect x="{xu:.1f}" y="{yu:.1f}" width="{bw:.1f}" height="{hu:.1f}" fill="#3F8EFC" rx="2"><title>{months[i]} Used: {int(used[i]):,}</title></rect>')
+        L.append(f'<rect x="{xu:.1f}" y="{yu:.1f}" width="{bw:.1f}" height="{hu:.1f}" fill="#5B9BF7" rx="2"><title>{months[i]} Used: {int(used[i]):,}</title></rect>')
         if i % 3 == 0:
             ly = mt + ph + 20
-            L.append(f'<text x="{xc:.1f}" y="{ly}" text-anchor="middle" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif" transform="rotate(-45 {xc:.1f} {ly})">{months[i]}</text>')
+            L.append(f'<text x="{xc:.1f}" y="{ly}" text-anchor="middle" fill="#9A9BA0" font-size="10" font-family="Helvetica Neue,Arial,sans-serif" transform="rotate(-45 {xc:.1f} {ly})">{months[i]}</text>')
     lx = ml + 10
     ly2 = mt - 25
     L.append(f'<rect x="{lx}" y="{ly2}" width="14" height="14" fill="#2954F0" rx="2"/>')
-    L.append(f'<text x="{lx + 20}" y="{ly2 + 12}" fill="#052390" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Purchased</text>')
-    L.append(f'<rect x="{lx + 110}" y="{ly2}" width="14" height="14" fill="#3F8EFC" rx="2"/>')
-    L.append(f'<text x="{lx + 130}" y="{ly2 + 12}" fill="#052390" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Used (Volume)</text>')
+    L.append(f'<text x="{lx + 20}" y="{ly2 + 12}" fill="#82B4FF" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Purchased</text>')
+    L.append(f'<rect x="{lx + 110}" y="{ly2}" width="14" height="14" fill="#5B9BF7" rx="2"/>')
+    L.append(f'<text x="{lx + 130}" y="{ly2 + 12}" fill="#82B4FF" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Used (Volume)</text>')
     L.append("</svg>")
     return "\n".join(L)
 
@@ -237,7 +237,7 @@ def build_monthly_rows():
 
         vc = var_color(vv)
         rbc = var_color(running_balance)
-        bg = "#F5F5F7" if i % 2 == 1 else "#FFFFFF"
+        bg = "#252629" if i % 2 == 1 else "#1E1F23"
         rows.append(
             f'<tr style="background:{bg}">'
             + f'<td>{r["Month"]}</td>'
@@ -388,7 +388,7 @@ combined_env_rows = build_combined_env_rows()
 sku_recon_rows = build_sku_recon_rows()
 envelope_spec_rows = build_envelope_spec_rows()
 
-post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
+post_var_color = "#4CAF79" if post_variance >= 0 else "#EF5350"
 post_var_pct = post_variance / post_purchased if post_purchased else 0
 
 # ---------------------------------------------------------------------------
@@ -399,10 +399,10 @@ html { scroll-behavior: smooth; }
 body {
     margin: 0; padding: 0;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 14px; line-height: 1.5; color: #333; background: #FAFAFA;
+    font-size: 14px; line-height: 1.5; color: #E0E1E6; background: #131416;
 }
 .header {
-    background: linear-gradient(135deg, #052390, #2954F0);
+    background: linear-gradient(135deg, #0A1A4A, #1A3A8F);
     color: #FFFFFF; padding: 48px 40px 40px;
 }
 .header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
@@ -411,80 +411,90 @@ body {
 .header .generated { font-size: 13px; opacity: 0.65; margin: 0; }
 .nav {
     position: sticky; top: 0; z-index: 100;
-    background: #FFFFFF; border-bottom: 2px solid #E2E2E2;
+    background: #1E1F23; border-bottom: 2px solid #3A3B40;
     padding: 0 40px; display: flex; gap: 0; overflow-x: auto;
 }
 .nav a {
-    color: #3F8EFC; text-decoration: none; font-size: 13px; font-weight: 500;
+    color: #5B9BF7; text-decoration: none; font-size: 13px; font-weight: 500;
     padding: 12px 16px; white-space: nowrap;
     border-bottom: 3px solid transparent; transition: border-color 0.2s, color 0.2s;
 }
-.nav a:hover { color: #2954F0; border-bottom-color: #2954F0; }
+.nav a:hover { color: #82B4FF; border-bottom-color: #5B9BF7; }
 .content { max-width: 1340px; margin: 0 auto; padding: 32px 40px 60px; }
 .section { margin-bottom: 40px; }
 .section-header {
     display: flex; align-items: center; justify-content: space-between;
     cursor: pointer; user-select: none; margin-bottom: 16px;
 }
-.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #052390; }
+.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #82B4FF; }
 .section-header .toggle {
-    font-size: 18px; color: #6D6E71; width: 28px; height: 28px;
+    font-size: 18px; color: #9A9BA0; width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%; transition: background 0.2s;
 }
-.section-header:hover .toggle { background: #F5F5F7; }
+.section-header:hover .toggle { background: #2A2B30; }
 .section-body { transition: max-height 0.3s ease; overflow: hidden; }
 .section-body.collapsed { max-height: 0 !important; overflow: hidden; }
 .kpi-grid { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
 .kpi-card {
-    flex: 1 1 200px; background: #FFFFFF; border-radius: 12px; padding: 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
-    min-width: 190px;
+    flex: 1 1 200px; background: #1E1F23; border-radius: 12px; padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
+    min-width: 190px; border: 1px solid #2A2B30;
 }
 .kpi-card .kpi-label {
     font-size: 12px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #6D6E71; margin: 0 0 8px;
+    letter-spacing: 0.5px; color: #9A9BA0; margin: 0 0 8px;
 }
 .kpi-card .kpi-value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
-.kpi-card .kpi-sub { font-size: 12px; color: #6D6E71; margin: 6px 0 0; }
-.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #FFFFFF; }
+.kpi-card .kpi-sub { font-size: 12px; color: #9A9BA0; margin: 6px 0 0; }
+.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; background: #1E1F23; }
 table th {
-    background: #052390; color: #FFFFFF; padding: 10px 14px; text-align: left;
+    background: #0A1A4A; color: #FFFFFF; padding: 10px 14px; text-align: left;
     font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
     cursor: pointer; white-space: nowrap; user-select: none;
 }
-table th:hover { background: #2954F0; }
+table th:hover { background: #1A3A8F; }
 table th .sort-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
-table td { padding: 8px 14px; border-bottom: 1px solid #F0F0F0; white-space: nowrap; }
+table td { padding: 8px 14px; border-bottom: 1px solid #2A2B30; white-space: nowrap; color: #E0E1E6; }
 table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
-table tbody tr:hover { background: #EBF7FF !important; }
-.subtotal-row { background: #EDF0F7 !important; border-top: 2px solid #C5CAD6; }
-.total-row { background: #F5F5F7 !important; border-top: 2px solid #E2E2E2; }
+table tbody tr:hover { background: #1A2A3D !important; }
+.subtotal-row { background: #252830 !important; border-top: 2px solid #3A3D48; }
+.total-row { background: #2A2D35 !important; border-top: 2px solid #3A3D48; }
 .bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
 .bar-fill {
-    height: 18px; background: linear-gradient(90deg, #2954F0, #3F8EFC);
+    height: 18px; background: linear-gradient(90deg, #2954F0, #5B9BF7);
     border-radius: 9px; min-width: 3px;
 }
-.bar-label { font-size: 12px; font-weight: 500; color: #6D6E71; white-space: nowrap; }
+.bar-label { font-size: 12px; font-weight: 500; color: #9A9BA0; white-space: nowrap; }
 .flag-under {
-    background: #E8F5E9; color: #186741; padding: 3px 10px; border-radius: 12px;
+    background: #1A3A2A; color: #4CAF79; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
 }
 .flag-ok {
-    background: #F5F5F7; color: #6D6E71; padding: 3px 10px; border-radius: 12px;
+    background: #252629; color: #9A9BA0; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
 }
 .footer {
     text-align: center; padding: 32px 40px; font-size: 12px;
-    color: #6D6E71; border-top: 1px solid #E2E2E2;
+    color: #9A9BA0; border-top: 1px solid #2A2B30;
 }
 @media print {
     .nav { display: none; }
     .section-header .toggle { display: none; }
     .section-body.collapsed { max-height: none !important; }
-    body { font-size: 11px; }
+    body { background: #FFFFFF !important; color: #333 !important; font-size: 11px; }
+    .kpi-card, .bottom-line, .info-box, .context-line, .table-wrap { background: #FFFFFF !important; border-color: #E2E2E2 !important; box-shadow: none !important; }
+    .bottom-line p, .info-box p, .kpi-card .kpi-sub { color: #333 !important; }
+    .bottom-line .bl-heading, .kpi-card .kpi-label, .section-header h2 { color: #052390 !important; }
+    table { background: #FFFFFF !important; }
+    table td { color: #333 !important; border-bottom-color: #E2E2E2 !important; }
+    table th { background: #052390 !important; }
+    .subtotal-row { background: #F0F0F5 !important; }
+    .total-row { background: #F5F5F7 !important; }
+    .context-line { background: #F5F5F7 !important; }
+    .footer { color: #6D6E71 !important; border-top-color: #E2E2E2 !important; }
 }
 @media (max-width: 768px) {
     .header { padding: 32px 20px 28px; }
@@ -604,10 +614,10 @@ html += '    <div class="section-body">\n'
 
 # KPI cards
 html += '        <div class="kpi-grid">\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">Total envelopes used (volume)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_used)}</p><p class="kpi-sub">Total envelopes used (volume)</p></div>\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num_parens(post_variance)}</p><p class="kpi-sub">{fmt_pct(post_var_pct)} of purchased</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#2954F0">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#5B9BF7">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
 html += '        </div>\n'
 
 # Year-by-year table
@@ -645,7 +655,7 @@ html += '        <h2>Monthly trend</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);">\n'
 html += svg_chart
 html += '\n        </div>\n'
 html += '    </div>\n</div>\n\n'
@@ -674,10 +684,10 @@ html += '        <div class="table-wrap"><table class="sortable">\n'
 html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
+html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
 
 # SKU-level breakdown
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
 html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
@@ -692,12 +702,12 @@ html += '        <h2>Envelope specifications</h2>\n'
 html += '        <span class="toggle">&#9654;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
-html += '        <p style="font-size:13px;color:#6D6E71;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
+html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        <div class="table-wrap"><table>\n'
 html += '            <thead><tr><th>WMS Code</th><th>Mail Type</th><th>Size</th><th>Style</th><th>Postage</th><th>Notes</th></tr></thead>\n'
 html += '            <tbody>\n' + envelope_spec_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += '        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#6D6E71;">\n'
+html += '        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#9A9BA0;">\n'
 html += '            <span><strong>PFC</strong> = Pre-printed First-Class permit (domestic)</span>\n'
 html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; postage applied at mailing)</span>\n'
 html += '            <span><strong>DW</strong> = Double Window</span>\n'

@@ -13,14 +13,7 @@ HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
 by_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
-usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
 usage_by_env_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
-
-# Aggregate type-level data to full-period totals (internal report uses full period)
-by_type = by_type_monthly.groupby("Envelope Type", as_index=False).agg({"Purchased": "sum", "Total Cost": "sum"})
-by_type.rename(columns={"Purchased": "Total Purchased"}, inplace=True)
-usage_by_env_type = usage_by_env_type_monthly.groupby("Envelope Type", as_index=False).agg({"Envelopes Used": "sum"})
-usage_by_env_type.rename(columns={"Envelopes Used": "Total Envelopes Used"}, inplace=True)
 
 print("Data loaded successfully.")
 
@@ -56,16 +49,27 @@ def fmt_pct(v):
     except (ValueError, TypeError):
         return str(v)
 
+def fmt_money(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return DASH
+    try:
+        val = float(v)
+        if val < 0:
+            return f"(${abs(val):,.0f})"
+        return f"${val:,.0f}"
+    except (ValueError, TypeError):
+        return str(v)
+
 def var_color(v):
     try:
         val = float(v)
         if val > 0:
-            return "#186741"
+            return "#4CAF79"
         if val < 0:
-            return "#9D1526"
+            return "#EF5350"
     except (ValueError, TypeError):
         pass
-    return "#6D6E71"
+    return "#9A9BA0"
 
 def safe(v, default=0):
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -81,8 +85,6 @@ total_mailed = int(monthly["Envelopes Mailed (Postage)"].sum())
 total_spoils = int(monthly["Spoils"].sum())
 net_variance = total_purchased - total_used
 
-usage_by_product_sorted = usage_by_product.sort_values("Total Envelopes Used", ascending=False)
-usage_product_total = usage_by_product["Total Envelopes Used"].sum()
 
 # Post-settlement analysis (Mar 2022 onward — when Apex started paying for envelopes)
 SETTLEMENT_DATE = "Mar-22"
@@ -108,7 +110,7 @@ spoilage_rate = post_spoils / post_used * 100 if post_used else 0
 
 # Year-by-year post-settlement
 from collections import defaultdict as _defaultdict
-post_yearly = _defaultdict(lambda: [0, 0, 0, 0, 0])  # purchased, used, mailed, spoils, month_count
+post_yearly = _defaultdict(lambda: [0, 0, 0, 0, 0, 0, 0])  # purchased, used, mailed, spoils, month_count, cost, invoiced
 for _, r in post.iterrows():
     yr = 2000 + int(r["Month"].split('-')[1])
     post_yearly[yr][0] += safe(r["Envelopes Purchased"])
@@ -116,47 +118,24 @@ for _, r in post.iterrows():
     post_yearly[yr][2] += safe(r["Envelopes Mailed (Postage)"])
     post_yearly[yr][3] += safe(r["Spoils"])
     post_yearly[yr][4] += 1
+    post_yearly[yr][5] += safe(r["Purchase Cost"])
+    post_yearly[yr][6] += safe(r["Invoiced Amount"])
+
+# Post-settlement cost totals
+post_cost = post["Purchase Cost"].sum()
+post_invoiced = post["Invoiced Amount"].sum()
+post_avg_unit_cost = post_cost / post_purchased if post_purchased else 0
+
+# Trailing 6-month cost for projection
+recent_6_cost = monthly.tail(6)["Purchase Cost"].sum()
+recent_6_inv = monthly.tail(6)["Invoiced Amount"].sum()
+projected_annual_cost = recent_6_cost * 2
+projected_annual_inv = recent_6_inv * 2
 
 # Rolling avg monthly usage (last 6 months) for buffer stock calculation
 recent_6 = monthly.tail(6)
 avg_monthly_usage = int(recent_6["Envelopes Used (Volume)"].mean())
 
-by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
-env_type_total = by_type["Total Purchased"].sum()
-
-# Build combined envelope group table — groups related purchase SKUs and usage types
-# by physical envelope shape/size (not postage imprint) for meaningful comparison.
-ENVELOPE_GROUPS = [
-    {
-        "label": "N14 Fold Statements",
-        "purchase_types": ["ENVMEAPEXN14PFC", "ENVMERIDGEN14NI11/08"],
-        "usage_types": ["ENVMEAPEXN14PFC", "ENVMERIDGEN14NI11/08"],
-    },
-    {
-        "label": "9x12 Flat Statements",
-        "purchase_types": ["ENVMEAPEX9X12PFC", "ENVMERIDGE9X12NI11/08"],
-        "usage_types": ["ENVMEAPEX9X12PFC", "ENVMERIDGE9X12NI11/08"],
-    },
-    {
-        "label": "#10 Confirms + Letters",
-        "purchase_types": ["ENVAPXN10 Confirms+Letters (PFC)", "ENVCONPFSN10NI"],
-        "usage_types": ["ENVAPXN10 Confirms+Letters (PFC)", "ENVCONPFSN10NI"],
-    },
-    {
-        "label": "9x12 Flat Confirms",
-        "purchase_types": ["ENVCONRIDGE9X12DW"],
-        "usage_types": ["ENVCONRIDGE9X12DW"],
-    },
-    {
-        "label": "Tax Form Envelopes",
-        "purchase_types": ["Tax Form Envelopes (1099/1099-R)", "Tax Form Envelopes (1042/IRA)"],
-        "usage_types": ["Tax Form Envelopes (1099/1099-R)"],
-    },
-]
-
-# Build lookup dicts
-purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))
-usage_by_type_dict = dict(zip(usage_by_env_type["Envelope Type"], usage_by_env_type["Total Envelopes Used"]))
 
 # ---------------------------------------------------------------------------
 # Post-settlement per-SKU buffer stock analysis
@@ -241,7 +220,7 @@ for sku in all_sku_keys:
 
     # Action recommendation
     if buf_mo < 0:
-        action = "No action needed"
+        action = "Covered by prior stock"
     elif buf_mo > 100:
         action = "Stop purchasing"
     elif buf_mo > 6:
@@ -254,6 +233,26 @@ for sku in all_sku_keys:
         action = "Increase orders"
 
     sku_buffer_data.append((sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action))
+
+# Interchangeable NI/PFC pairs: when PFC shows deficit but NI has excess,
+# the combined inventory covers both — adjust action accordingly
+_INTERCHANGEABLE_PAIRS = {
+    "ENVAPXN10 Confirms+Letters (PFC)": "ENVCONPFSN10NI",
+    "ENVMEAPEXN14PFC": "ENVMERIDGEN14NI11/08",
+    "ENVMEAPEX9X12PFC": "ENVMERIDGE9X12NI11/08",
+}
+_sku_idx = {d[0]: i for i, d in enumerate(sku_buffer_data)}
+for pfc_sku, ni_sku in _INTERCHANGEABLE_PAIRS.items():
+    if pfc_sku in _sku_idx and ni_sku in _sku_idx:
+        pi, ni = _sku_idx[pfc_sku], _sku_idx[ni_sku]
+        pfc_d, ni_d = sku_buffer_data[pi], sku_buffer_data[ni]
+        combined_var = pfc_d[6] + ni_d[6]
+        combined_avg = pfc_d[7] + ni_d[7]
+        combined_buf = combined_var / combined_avg if combined_avg > 0 else 0
+        # If PFC shows low/deficit but combined pair has adequate buffer, override action
+        if pfc_d[8] < 2 and combined_buf >= 2:
+            new_action = "Covered by NI stock"
+            sku_buffer_data[pi] = pfc_d[:12] + (new_action,)
 
 # Filter out noise (tax forms with 0 purchases post-settlement)
 # Tuple: (sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action)
@@ -283,51 +282,6 @@ def find_missing_months():
 
 missing_months = find_missing_months()
 
-def build_svg_chart():
-    months = post["Month"].tolist()
-    purchased = post["Envelopes Purchased"].tolist()
-    used = post["Envelopes Used (Volume)"].tolist()
-    n = len(months)
-    if n == 0:
-        return ""
-    cw, ch = 1200, 400
-    ml, mr, mt, mb = 80, 30, 50, 80
-    pw = cw - ml - mr
-    ph = ch - mt - mb
-    max_val = max(max(purchased), max(used)) * 1.1
-    bgw = pw / n
-    bw = bgw * 0.35
-    L = []
-    L.append(f'<svg viewBox="0 0 {cw} {ch}" style="width:100%;max-width:{cw}px;height:auto;" xmlns="http://www.w3.org/2000/svg">')
-    L.append(f'<rect width="{cw}" height="{ch}" fill="#FFFFFF" rx="12"/>')
-    for i in range(6):
-        yv = max_val * i / 5
-        yp = mt + ph - (ph * i / 5)
-        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw - mr}" y2="{yp:.1f}" stroke="#E2E2E2" stroke-width="1"/>')
-        lb = f"{yv / 1000000:.1f}M" if yv >= 1000000 else f"{yv / 1000:.0f}K"
-        L.append(f'<text x="{ml - 8}" y="{yp + 4:.1f}" text-anchor="end" fill="#6D6E71" font-size="11" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
-    for i in range(n):
-        xc = ml + (i + 0.5) * bgw
-        hp = (purchased[i] / max_val) * ph if max_val > 0 else 0
-        xp = xc - bw - 1
-        yp = mt + ph - hp
-        L.append(f'<rect x="{xp:.1f}" y="{yp:.1f}" width="{bw:.1f}" height="{hp:.1f}" fill="#2954F0" rx="2"><title>{months[i]} Purchased: {int(purchased[i]):,}</title></rect>')
-        hu = (used[i] / max_val) * ph if max_val > 0 else 0
-        xu = xc + 1
-        yu = mt + ph - hu
-        L.append(f'<rect x="{xu:.1f}" y="{yu:.1f}" width="{bw:.1f}" height="{hu:.1f}" fill="#3F8EFC" rx="2"><title>{months[i]} Used: {int(used[i]):,}</title></rect>')
-        if i % 3 == 0:
-            ly = mt + ph + 20
-            L.append(f'<text x="{xc:.1f}" y="{ly}" text-anchor="middle" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif" transform="rotate(-45 {xc:.1f} {ly})">{months[i]}</text>')
-    lx = ml + 10
-    ly2 = mt - 25
-    L.append(f'<rect x="{lx}" y="{ly2}" width="14" height="14" fill="#2954F0" rx="2"/>')
-    L.append(f'<text x="{lx + 20}" y="{ly2 + 12}" fill="#052390" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Purchased</text>')
-    L.append(f'<rect x="{lx + 110}" y="{ly2}" width="14" height="14" fill="#3F8EFC" rx="2"/>')
-    L.append(f'<text x="{lx + 130}" y="{ly2 + 12}" fill="#052390" font-size="12" font-family="Helvetica Neue,Arial,sans-serif" font-weight="500">Used (Volume)</text>')
-    L.append("</svg>")
-    return "\n".join(L)
-
 def build_monthly_rows():
     """Build monthly rows (post-settlement scope) with wastage, annual subtotals and grand total."""
     rows = []
@@ -350,7 +304,7 @@ def build_monthly_rows():
             + f'<td><strong>{yr_label} Total</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
-            + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(yw)}</strong></td>'
+            + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(yw)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
             + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
@@ -377,13 +331,13 @@ def build_monthly_rows():
         vc = var_color(vv)
         rbc = var_color(running_balance)
         vpct = vv / p if p else 0
-        bg = "#F5F5F7" if i % 2 == 1 else "#FFFFFF"
+        bg = "#252629" if i % 2 == 1 else "#1E1F23"
         rows.append(
             f'<tr style="background:{bg}">'
             + f'<td>{r["Month"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
+            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
             + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
@@ -406,7 +360,7 @@ def build_monthly_rows():
         + f'<td><strong>Grand Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
-        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(gw)}</strong></td>'
+        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(gw)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
@@ -414,126 +368,20 @@ def build_monthly_rows():
     )
     return "\n".join(rows)
 
-def build_env_type_rows():
-    rows = []
-    for _, r in by_type_sorted.iterrows():
-        tp = safe(r["Total Purchased"])
-        pct = (tp / env_type_total * 100) if env_type_total else 0
-        bw = max(pct, 0.5)
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{r["Envelope Type"]}</td>'
-            + f'<td class="num">{fmt_num(tp)}</td>'
-            + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
-def build_combined_env_rows():
-    rows = []
-    grand_p = grand_u = 0
-    for g in ENVELOPE_GROUPS:
-        p = sum(safe(purchase_by_type.get(t, 0)) for t in g["purchase_types"])
-        u = sum(safe(usage_by_type_dict.get(t, 0)) for t in g["usage_types"])
-        v = p - u
-        grand_p += p
-        grand_u += u
-        vc = var_color(v)
-        vpct = v / p if p else 0
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{g["label"]}</td>'
-            + f'<td class="num">{fmt_num(p)}</td>'
-            + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
-            + '</tr>'
-        )
-    # Grand total
-    gv = grand_p - grand_u
-    gvc = var_color(gv)
-    gpct = gv / grand_p if grand_p else 0
-    rows.append(
-        '<tr class="total-row">'
-        + f'<td><strong>Total</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
-        + '</tr>'
-    )
-    return "\n".join(rows)
-
-def build_usage_by_product_rows():
-    rows = []
-    for _, r in usage_by_product_sorted.iterrows():
-        used = safe(r["Total Envelopes Used"])
-        pct = (used / usage_product_total * 100) if usage_product_total else 0
-        bw = max(pct, 0.5)
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{r["Product Name"]}</td>'
-            + f'<td class="num">{fmt_num(used)}</td>'
-            + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
-def build_sku_recon_rows():
-    """SKU-level recon: purchased, used, variance, variance %."""
-    all_types = sorted(
-        set(list(purchase_by_type.keys()) + list(usage_by_type_dict.keys())),
-        key=lambda t: -(safe(purchase_by_type.get(t, 0)) + safe(usage_by_type_dict.get(t, 0)))
-    )
-    rows = []
-    grand_p = grand_u = 0
-    for t in all_types:
-        p = safe(purchase_by_type.get(t, 0))
-        u = safe(usage_by_type_dict.get(t, 0))
-        if p == 0 and u == 0:
-            continue
-        v = p - u
-        grand_p += p
-        grand_u += u
-        vc = var_color(v)
-        vpct = v / p if p else 0
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{t}</td>'
-            + f'<td class="num">{fmt_num(p)}</td>'
-            + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
-            + '</tr>'
-        )
-    gv = grand_p - grand_u
-    gvc = var_color(gv)
-    gpct = gv / grand_p if grand_p else 0
-    rows.append(
-        '<tr class="total-row">'
-        + f'<td><strong>Total</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(grand_p)}</strong></td>'
-        + f'<td class="num"><strong>{fmt_num(grand_u)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
-        + f'<td class="num" style="color:{gvc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
-        + '</tr>'
-    )
-    return "\n".join(rows)
-
 def _status_tag(buf_mo, action):
     """Return a styled status pill for the buffer assessment."""
     if buf_mo < 0:
-        return '<span style="background:#F3E5F5;color:#6A1B9A;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">DEFICIT</span>'
+        return '<span style="background:rgba(186,104,200,0.15);color:#CE93D8;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">DEFICIT</span>'
     elif buf_mo > 100:
-        return '<span style="background:#FFEBEE;color:#B71C1C;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">EXCESS</span>'
+        return '<span style="background:rgba(239,83,80,0.15);color:#EF5350;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">EXCESS</span>'
     elif buf_mo > 6:
-        return '<span style="background:#FFF3E0;color:#E65100;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">OVERSTOCKED</span>'
+        return '<span style="background:rgba(255,167,38,0.15);color:#FFA726;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">OVERSTOCKED</span>'
     elif buf_mo > 3:
-        return '<span style="background:#FFFDE7;color:#F57F17;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">HIGH</span>'
+        return '<span style="background:rgba(255,213,79,0.15);color:#FFD54F;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">HIGH</span>'
     elif buf_mo >= 2:
-        return '<span style="background:#E8F5E9;color:#186741;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">ON TARGET</span>'
+        return '<span style="background:rgba(76,175,121,0.15);color:#4CAF79;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">ON TARGET</span>'
     else:
-        return '<span style="background:#FFF3E0;color:#E65100;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">LOW</span>'
+        return '<span style="background:rgba(255,167,38,0.15);color:#FFA726;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">LOW</span>'
 
 def build_sku_buffer_table():
     """HTML table showing per-SKU buffer stock with wastage, dollars, and recommended action."""
@@ -561,13 +409,15 @@ def build_sku_buffer_table():
 
         # Action styling
         if action == "Stop purchasing":
-            action_html = f'<span style="color:#B71C1C;font-weight:600;">{action}</span>'
+            action_html = f'<span style="color:#EF5350;font-weight:600;">{action}</span>'
         elif action in ("Reduce orders", "Increase orders"):
-            action_html = f'<span style="color:#E65100;font-weight:600;">{action}</span>'
+            action_html = f'<span style="color:#FFA726;font-weight:600;">{action}</span>'
         elif action == "On target":
-            action_html = f'<span style="color:#186741;">{action}</span>'
+            action_html = f'<span style="color:#4CAF79;">{action}</span>'
+        elif action == "Covered by NI stock":
+            action_html = f'<span style="color:#5B9BF7;">{action}</span>'
         else:
-            action_html = f'<span style="color:#6D6E71;">{action}</span>'
+            action_html = f'<span style="color:#9A9BA0;">{action}</span>'
 
         rows.append(
             '<tr>'
@@ -575,7 +425,7 @@ def build_sku_buffer_table():
             + f'<td style="text-align:center;">{status}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
-            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
+            + f'<td class="num" style="color:#9A9BA0;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
             + f'<td class="num">{buf_display}</td>'
             + f'<td class="num">{exc_display}</td>'
@@ -599,7 +449,7 @@ def build_sku_buffer_table():
         + f'<td></td>'
         + f'<td class="num"><strong>{fmt_num(tp)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(tu)}</strong></td>'
-        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(tw)}</strong></td>'
+        + f'<td class="num" style="color:#9A9BA0;"><strong>{fmt_num(tw)}</strong></td>'
         + f'<td class="num" style="color:{tvc};font-weight:700"><strong>{fmt_num_parens(tv)}</strong></td>'
         + f'<td class="num"><strong>{overall_buf:.1f}</strong></td>'
         + f'<td class="num"><strong>${total_excess_dollars:,.0f}</strong></td>'
@@ -628,90 +478,31 @@ def build_inventory_gauge():
     s = []
     s.append(f'<svg viewBox="0 0 {w} {h}" style="width:100%;max-width:{w}px;height:auto;" xmlns="http://www.w3.org/2000/svg">')
     # Track
-    s.append(f'<rect x="{ml}" y="{bar_y}" width="{bar_w}" height="{bar_h}" fill="#F0F0F0" rx="4"/>')
+    s.append(f'<rect x="{ml}" y="{bar_y}" width="{bar_w}" height="{bar_h}" fill="#2A2B30" rx="4"/>')
     # Under-target zone (0 to policy_min) — amber
-    s.append(f'<rect x="{ml}" y="{bar_y}" width="{xp(policy_min)-ml:.1f}" height="{bar_h}" fill="#FFF3E0" rx="4"/>')
+    s.append(f'<rect x="{ml}" y="{bar_y}" width="{xp(policy_min)-ml:.1f}" height="{bar_h}" fill="rgba(255,167,38,0.2)" rx="4"/>')
     # Policy zone (min to max) — green
-    s.append(f'<rect x="{xp(policy_min):.1f}" y="{bar_y}" width="{xp(policy_max)-xp(policy_min):.1f}" height="{bar_h}" fill="#C8E6C9"/>')
+    s.append(f'<rect x="{xp(policy_min):.1f}" y="{bar_y}" width="{xp(policy_max)-xp(policy_min):.1f}" height="{bar_h}" fill="rgba(76,175,121,0.25)"/>')
     # Over-target zone (max to end) — light red
-    s.append(f'<rect x="{xp(policy_max):.1f}" y="{bar_y}" width="{xp(max_val)-xp(policy_max):.1f}" height="{bar_h}" fill="#FFCDD2" rx="4"/>')
+    s.append(f'<rect x="{xp(policy_max):.1f}" y="{bar_y}" width="{xp(max_val)-xp(policy_max):.1f}" height="{bar_h}" fill="rgba(239,83,80,0.2)" rx="4"/>')
     # Policy range borders
-    s.append(f'<line x1="{xp(policy_min):.1f}" y1="{bar_y}" x2="{xp(policy_min):.1f}" y2="{bar_y+bar_h}" stroke="#186741" stroke-width="1.5"/>')
-    s.append(f'<line x1="{xp(policy_max):.1f}" y1="{bar_y}" x2="{xp(policy_max):.1f}" y2="{bar_y+bar_h}" stroke="#186741" stroke-width="1.5"/>')
+    s.append(f'<line x1="{xp(policy_min):.1f}" y1="{bar_y}" x2="{xp(policy_min):.1f}" y2="{bar_y+bar_h}" stroke="#4CAF79" stroke-width="1.5"/>')
+    s.append(f'<line x1="{xp(policy_max):.1f}" y1="{bar_y}" x2="{xp(policy_max):.1f}" y2="{bar_y+bar_h}" stroke="#4CAF79" stroke-width="1.5"/>')
     # Actual marker
     ax = xp(actual)
-    s.append(f'<line x1="{ax:.1f}" y1="{bar_y-6}" x2="{ax:.1f}" y2="{bar_y+bar_h+6}" stroke="#052390" stroke-width="3"/>')
-    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="8" fill="#052390"/>')
-    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="4" fill="#FFFFFF"/>')
+    s.append(f'<line x1="{ax:.1f}" y1="{bar_y-6}" x2="{ax:.1f}" y2="{bar_y+bar_h+6}" stroke="#5B9BF7" stroke-width="3"/>')
+    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="8" fill="#5B9BF7"/>')
+    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="4" fill="#1E1F23"/>')
     # Labels — above bar
-    s.append(f'<text x="{ax:.1f}" y="{bar_y-12}" text-anchor="middle" font-size="13" fill="#052390" font-weight="700" font-family="Helvetica Neue,Arial,sans-serif">Actual: {fmt_num(actual)}</text>')
+    s.append(f'<text x="{ax:.1f}" y="{bar_y-12}" text-anchor="middle" font-size="13" fill="#82B4FF" font-weight="700" font-family="Helvetica Neue,Arial,sans-serif">Actual: {fmt_num(actual)}</text>')
     # Labels — below bar
-    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_min)}</text>')
-    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">2-mo min</text>')
-    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_max)}</text>')
-    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">3-mo max</text>')
+    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#4CAF79" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_min)}</text>')
+    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#4CAF79" font-family="Helvetica Neue,Arial,sans-serif">2-mo min</text>')
+    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#4CAF79" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_max)}</text>')
+    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#4CAF79" font-family="Helvetica Neue,Arial,sans-serif">3-mo max</text>')
     s.append('</svg>')
     return '\n'.join(s)
 
-def build_monthly_usage_trend():
-    """SVG sparkline showing rolling 6-month avg usage over time."""
-    n = len(post)
-    if n < 6:
-        return ""
-    # Compute 6-month rolling average
-    usage_vals = post["Envelopes Used (Volume)"].tolist()
-    labels = post["Month"].tolist()
-    rolling = []
-    for i in range(5, n):
-        avg = sum(usage_vals[i-5:i+1]) / 6
-        rolling.append((labels[i], avg))
-
-    cw, ch = 700, 160
-    ml, mr, mt, mb = 60, 30, 30, 50
-    pw = cw - ml - mr
-    ph = ch - mt - mb
-    nr = len(rolling)
-    max_val = max(v for _, v in rolling) * 1.15
-    min_val = min(v for _, v in rolling) * 0.85
-
-    L = [f'<svg viewBox="0 0 {cw} {ch}" style="width:100%;max-width:{cw}px;height:auto;" xmlns="http://www.w3.org/2000/svg">']
-    L.append(f'<rect width="{cw}" height="{ch}" fill="#FFFFFF" rx="8"/>')
-
-    # Y-axis gridlines
-    for i in range(5):
-        yv = min_val + (max_val - min_val) * i / 4
-        yp = mt + ph - (ph * i / 4)
-        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw-mr}" y2="{yp:.1f}" stroke="#F0F0F0" stroke-width="1"/>')
-        lb = f"{yv/1000:.0f}K"
-        L.append(f'<text x="{ml-6}" y="{yp+4:.1f}" text-anchor="end" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
-
-    # Line path
-    pts = []
-    for i, (lbl, val) in enumerate(rolling):
-        x = ml + (i / (nr - 1)) * pw
-        y = mt + ph - ((val - min_val) / (max_val - min_val)) * ph
-        pts.append(f"{x:.1f},{y:.1f}")
-    L.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="#3F8EFC" stroke-width="2.5" stroke-linejoin="round"/>')
-
-    # Start/end dots + labels
-    sx, sy = pts[0].split(',')
-    ex, ey = pts[-1].split(',')
-    L.append(f'<circle cx="{sx}" cy="{sy}" r="4" fill="#3F8EFC"/>')
-    L.append(f'<circle cx="{ex}" cy="{ey}" r="5" fill="#052390"/>')
-    L.append(f'<text x="{sx}" y="{float(sy)-10}" text-anchor="start" font-size="11" fill="#3F8EFC" font-weight="600" font-family="Helvetica Neue,Arial,sans-serif">{rolling[0][1]/1000:.0f}K</text>')
-    L.append(f'<text x="{ex}" y="{float(ey)-10}" text-anchor="end" font-size="11" fill="#052390" font-weight="600" font-family="Helvetica Neue,Arial,sans-serif">{rolling[-1][1]/1000:.0f}K</text>')
-
-    # X-axis labels (every 12th)
-    for i, (lbl, val) in enumerate(rolling):
-        if i % 12 == 0 or i == nr - 1:
-            x = ml + (i / (nr - 1)) * pw
-            ly = mt + ph + 16
-            L.append(f'<text x="{x:.1f}" y="{ly}" text-anchor="middle" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif">{lbl}</text>')
-
-    L.append('</svg>')
-    return '\n'.join(L)
-
-svg_chart = build_svg_chart()
 monthly_rows = build_monthly_rows()
 
 # Build per-SKU monthly JSON for interactive Monthly Detail
@@ -812,26 +603,20 @@ for gk, gv in _combined_groups.items():
 sku_display_map.update({d[0]: d[1] for d in sku_buffer_data})
 sku_dropdown_json = _json.dumps(sku_display_map)
 
-env_type_rows = build_env_type_rows()
-combined_env_rows = build_combined_env_rows()
-usage_product_rows = build_usage_by_product_rows()
-sku_recon_rows = build_sku_recon_rows()
 sku_buffer_rows = build_sku_buffer_table()
 
-kpi_var_color = "#9D1526" if net_variance < 0 else "#186741"
+kpi_var_color = "#EF5350" if net_variance < 0 else "#4CAF79"
 
 # --- Post-settlement derived values (wastage-adjusted) ---
 post_adj_used = post_used + total_wastage_allowance
 post_adj_variance = post_purchased - post_adj_used
 trail6_adj_total = sum(d[7] for d in sku_buffer_data)  # sum of avg_mo (already per-month)
 avg_monthly_usage_adj = int(trail6_adj_total) if trail6_adj_total > 0 else avg_monthly_usage
-post_var_color = "#186741" if post_adj_variance >= 0 else "#9D1526"
+post_var_color = "#4CAF79" if post_adj_variance >= 0 else "#EF5350"
 buffer_months = post_adj_variance / avg_monthly_usage_adj if avg_monthly_usage_adj else 0
 
 # Build gauge AFTER adjusted values are computed
 inventory_gauge = build_inventory_gauge()
-usage_trend_svg = build_monthly_usage_trend()
-
 usage_2022 = post_yearly[2022][1] / post_yearly[2022][4] if post_yearly[2022][4] else 0
 usage_2025 = post_yearly[2025][1] / post_yearly[2025][4] if post_yearly[2025][4] else 0
 usage_decline = (1 - usage_2025 / usage_2022) * 100 if usage_2022 else 0
@@ -850,10 +635,10 @@ html { scroll-behavior: smooth; }
 body {
     margin: 0; padding: 0;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 14px; line-height: 1.5; color: #333; background: #FAFAFA;
+    font-size: 14px; line-height: 1.5; color: #E0E1E6; background: #131416;
 }
 .header {
-    background: linear-gradient(135deg, #052390, #2954F0);
+    background: linear-gradient(135deg, #0A1A4A, #1A3A8F);
     color: #FFFFFF; padding: 48px 40px 40px;
 }
 .header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
@@ -861,108 +646,124 @@ body {
 .header .generated { font-size: 13px; opacity: 0.65; margin: 0; }
 .nav {
     position: sticky; top: 0; z-index: 100;
-    background: #FFFFFF; border-bottom: 2px solid #E2E2E2;
+    background: #1E1F23; border-bottom: 2px solid #3A3B40;
     padding: 0 40px; display: flex; gap: 0; overflow-x: auto;
 }
 .nav a {
-    color: #3F8EFC; text-decoration: none; font-size: 13px; font-weight: 500;
+    color: #5B9BF7; text-decoration: none; font-size: 13px; font-weight: 500;
     padding: 12px 16px; white-space: nowrap;
     border-bottom: 3px solid transparent; transition: border-color 0.2s, color 0.2s;
 }
-.nav a:hover { color: #2954F0; border-bottom-color: #2954F0; }
+.nav a:hover { color: #82B4FF; border-bottom-color: #5B9BF7; }
 .content { max-width: 1340px; margin: 0 auto; padding: 32px 40px 60px; }
 .section { margin-bottom: 40px; }
 .section-header {
     display: flex; align-items: center; justify-content: space-between;
     cursor: pointer; user-select: none; margin-bottom: 16px;
 }
-.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #052390; }
+.section-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: #82B4FF; }
 .section-header .toggle {
-    font-size: 18px; color: #6D6E71; width: 28px; height: 28px;
+    font-size: 18px; color: #9A9BA0; width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%; transition: background 0.2s;
 }
-.section-header:hover .toggle { background: #F5F5F7; }
+.section-header:hover .toggle { background: #2A2B30; }
 .section-body { transition: max-height 0.3s ease; overflow: hidden; }
 .section-body.collapsed { max-height: 0 !important; overflow: hidden; }
 .kpi-grid { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
 .kpi-card {
-    flex: 1 1 200px; background: #FFFFFF; border-radius: 12px; padding: 24px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
-    min-width: 190px;
+    flex: 1 1 200px; background: #1E1F23; border-radius: 12px; padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
+    min-width: 190px; border: 1px solid #2A2B30;
 }
 .kpi-card .kpi-label {
     font-size: 12px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #6D6E71; margin: 0 0 8px;
+    letter-spacing: 0.5px; color: #9A9BA0; margin: 0 0 8px;
 }
 .kpi-card .kpi-value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
-.kpi-card .kpi-sub { font-size: 12px; color: #6D6E71; margin: 6px 0 0; }
+.kpi-card .kpi-sub { font-size: 12px; color: #9A9BA0; margin: 6px 0 0; }
 .bottom-line {
-    background: #FFFFFF; border-radius: 12px; padding: 24px 28px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
-    border-left: 5px solid #052390; margin-bottom: 24px;
+    background: #1E1F23; border-radius: 12px; padding: 24px 28px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
+    border-left: 5px solid #5B9BF7; margin-bottom: 24px;
 }
 .bottom-line .bl-heading {
     font-size: 13px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #052390; margin: 0 0 8px;
+    letter-spacing: 0.5px; color: #5B9BF7; margin: 0 0 8px;
 }
-.bottom-line p { margin: 0; font-size: 14px; line-height: 1.7; color: #333; }
-.bottom-line strong { color: #052390; }
+.bottom-line p { margin: 0; font-size: 14px; line-height: 1.7; color: #E0E1E6; }
+.bottom-line strong { color: #82B4FF; }
 .alert-box {
-    background: rgba(252, 94, 23, 0.06); border-left: 4px solid #FC5E17;
+    background: rgba(252, 94, 23, 0.1); border-left: 4px solid #FC5E17;
     border-radius: 0 8px 8px 0; padding: 16px 24px; margin-bottom: 20px;
 }
-.alert-box p { margin: 0; font-size: 13px; color: #333; }
-.alert-box strong { color: #FC5E17; }
+.alert-box p { margin: 0; font-size: 13px; color: #E0E1E6; }
+.alert-box strong { color: #FF8A50; }
 .info-box {
-    background: rgba(41, 84, 240, 0.05); border-left: 4px solid #2954F0;
+    background: rgba(91, 155, 247, 0.08); border-left: 4px solid #5B9BF7;
     border-radius: 0 8px 8px 0; padding: 16px 24px; margin-top: 20px;
 }
-.info-box p { margin: 0; font-size: 13px; color: #333; line-height: 1.6; }
-.info-box strong { color: #052390; }
+.info-box p { margin: 0; font-size: 13px; color: #E0E1E6; line-height: 1.6; }
+.info-box strong { color: #82B4FF; }
 .context-line {
-    font-size: 13px; color: #6D6E71; margin: 20px 0 0;
-    padding: 12px 16px; background: #F5F5F7; border-radius: 8px; line-height: 1.6;
+    font-size: 13px; color: #9A9BA0; margin: 20px 0 0;
+    padding: 12px 16px; background: #1E1F23; border-radius: 8px; line-height: 1.6;
 }
-.context-line strong { color: #333; }
-.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #FFFFFF; }
+.context-line strong { color: #E0E1E6; }
+.table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; background: #1E1F23; }
 table th {
-    background: #052390; color: #FFFFFF; padding: 10px 14px; text-align: left;
+    background: #0A1A4A; color: #FFFFFF; padding: 10px 14px; text-align: left;
     font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
     cursor: pointer; white-space: nowrap; user-select: none;
 }
-table th:hover { background: #2954F0; }
+table th:hover { background: #1A3A8F; }
 table th .sort-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
-table td { padding: 8px 14px; border-bottom: 1px solid #F0F0F0; white-space: nowrap; }
+table td { padding: 8px 14px; border-bottom: 1px solid #2A2B30; white-space: nowrap; color: #E0E1E6; }
 table .num { text-align: right; font-variant-numeric: tabular-nums; }
 table .env-name { max-width: 260px; white-space: normal; word-break: break-word; }
-table tbody tr:hover { background: #EBF7FF !important; }
-.subtotal-row { background: #EDF0F7 !important; border-top: 2px solid #C5CAD6; }
-.total-row { background: #F5F5F7 !important; border-top: 2px solid #E2E2E2; }
+table tbody tr:hover { background: #1A2A3D !important; }
+.subtotal-row { background: #252830 !important; border-top: 2px solid #3A3D48; }
+.total-row { background: #2A2D35 !important; border-top: 2px solid #3A3D48; }
 .bar-container { display: flex; align-items: center; gap: 8px; min-width: 160px; }
 .bar-fill {
-    height: 18px; background: linear-gradient(90deg, #2954F0, #3F8EFC);
+    height: 18px; background: linear-gradient(90deg, #2954F0, #5B9BF7);
     border-radius: 9px; min-width: 3px;
 }
-.bar-label { font-size: 12px; font-weight: 500; color: #6D6E71; white-space: nowrap; }
+.bar-label { font-size: 12px; font-weight: 500; color: #9A9BA0; white-space: nowrap; }
 .flag-under {
-    background: #E8F5E9; color: #186741; padding: 3px 10px; border-radius: 12px;
+    background: rgba(76, 175, 121, 0.15); color: #4CAF79; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
 }
 .flag-ok {
-    background: #F5F5F7; color: #6D6E71; padding: 3px 10px; border-radius: 12px;
+    background: #2A2B30; color: #9A9BA0; padding: 3px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
 }
 .footer {
     text-align: center; padding: 32px 40px; font-size: 12px;
-    color: #6D6E71; border-top: 1px solid #E2E2E2;
+    color: #9A9BA0; border-top: 1px solid #2A2B30;
 }
 @media print {
     .nav { display: none; }
     .section-header .toggle { display: none; }
     .section-body.collapsed { max-height: none !important; }
-    body { font-size: 11px; }
+    body { font-size: 11px; background: #FFFFFF !important; color: #333 !important; -webkit-print-color-adjust: exact; }
+    .header { background: #052390 !important; }
+    .kpi-card, .bottom-line, .info-box, .context-line, .table-wrap,
+    .alert-box { background: #FFFFFF !important; border-color: #E2E2E2 !important; box-shadow: none !important; }
+    .bottom-line p, .info-box p, .alert-box p, .kpi-card .kpi-sub { color: #333 !important; }
+    .bottom-line .bl-heading, .kpi-card .kpi-label { color: #052390 !important; }
+    .bottom-line strong, .info-box strong { color: #052390 !important; }
+    .section-header h2 { color: #052390 !important; }
+    table { background: #FFFFFF !important; }
+    table td { color: #333 !important; border-bottom-color: #E2E2E2 !important; }
+    table th { background: #052390 !important; }
+    .subtotal-row { background: #F0F0F5 !important; }
+    .total-row { background: #F5F5F7 !important; }
+    .context-line { background: #F5F5F7 !important; }
+    .context-line strong { color: #333 !important; }
+    .footer { color: #6D6E71 !important; border-top-color: #E2E2E2 !important; }
+    svg rect[fill="#1E1F23"] { fill: #FFFFFF !important; }
 }
 @media (max-width: 768px) {
     .header { padding: 32px 20px 28px; }
@@ -1117,83 +918,127 @@ html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 
-# -- Bottom line --
-if buffer_months > 3:
-    bl_assessment = (
-        f'Broadridge is holding <strong>{buffer_months:.1f} months</strong> of envelope buffer stock '
-        f'&mdash; more than double their stated 2&ndash;3 month policy. '
-        f'While recent purchasing has corrected to within {abs(recent_var_pct):.0f}% of usage (2024&ndash;2025), '
-        f'the accumulated surplus from 2022 over-purchasing remains. '
-        f'Consider requesting Broadridge reduce purchase orders until inventory aligns with their 2&ndash;3 month buffer target.'
-    )
-elif buffer_months < 2:
-    bl_assessment = (
-        f'Buffer stock is at <strong>{buffer_months:.1f} months</strong>, below Broadridge&rsquo;s 2&ndash;3 month policy. '
-        f'Monitor upcoming purchase orders to ensure adequate supply.'
-    )
-else:
-    bl_assessment = (
-        f'Buffer stock is at <strong>{buffer_months:.1f} months</strong>, within Broadridge&rsquo;s 2&ndash;3 month target. '
-        f'Purchasing is well-calibrated to usage.'
-    )
+# -- Bottom line with structured recommendations --
+# Compute NI savings potential
+ni_excess_units = 0
+ni_annual_cost = 0
+for d in sku_buffer_data:
+    if d[0] in retired_foreign_skus and d[11] > 0:
+        ni_excess_units += max(0, d[6])  # variance
+ni_avg_annual_purchase = sum(
+    safe(post_yearly[y][0]) for y in list(sorted(post_yearly.keys()))[-2:]
+) / 2
+buffer_drawdown_months = max(0, buffer_months - 3)
+buffer_drawdown_units = int(buffer_drawdown_months * avg_monthly_usage_adj)
+buffer_drawdown_dollars = int(buffer_drawdown_units * post_avg_unit_cost)
 
 html += '        <div class="bottom-line">\n'
 html += '            <p class="bl-heading">Bottom line</p>\n'
-html += f'            <p>{bl_assessment}</p>\n'
+html += f'            <p>Broadridge is holding <strong>{buffer_months:.1f} months</strong> of envelope buffer stock '
+html += f'({fmt_num(post_adj_variance)} envelopes) &mdash; their contract requires 2&ndash;3 months. '
+html += f'Total invoiced since settlement: <strong>{fmt_money(post_invoiced)}</strong>. '
+html += f'At current run-rate, projected 2026 cost is <strong>{fmt_money(projected_annual_inv)}</strong> '
+html += f'(down from {fmt_money(post_yearly[2022][6])} in 2022).</p>\n'
 html += '        </div>\n'
 
-# -- Post-settlement KPIs (what Apex is paying for — the numbers that matter) --
+# -- Recommendations --
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:12px;margin-bottom:20px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">Recommended actions</p>\n'
+html += '            <ol style="margin:0;padding-left:20px;font-size:14px;line-height:2.0;color:#E0E1E6;">\n'
+html += f'                <li><strong>Pause new purchase orders</strong> until buffer stock draws down to 3-month target. Current excess: ~{fmt_num(buffer_drawdown_units)} envelopes ({fmt_money(buffer_drawdown_dollars)}).</li>\n'
+html += f'                <li><strong>Stop purchasing retired NI envelopes</strong> where PFC replacements exist. {fmt_money(excess_from_retired)} in excess NI inventory should be consumed before new orders. Broadridge can add indicia to NI stock for domestic use.</li>\n'
+html += f'                <li><strong>Request quarterly inventory reconciliation</strong> from Broadridge with physical counts vs. WMS to validate the implied {fmt_num(post_adj_variance)} buffer.</li>\n'
+html += '            </ol>\n'
+html += '        </div>\n'
+
+# -- KPI grid: volume + cost --
 html += '        <div class="kpi-grid">\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025 ({post_months} mo)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(total_wastage_allowance)} wastage (contract max)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_adj_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months at current usage + wastage</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage_adj)}</p><p class="kpi-sub">Trailing 6 months (incl. wastage)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_purchased)}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025 ({post_months} mo)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#5B9BF7">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(total_wastage_allowance)} wastage</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_adj_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months of buffer stock</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Total Invoiced</p><p class="kpi-value" style="color:#5B9BF7">{fmt_money(post_invoiced)}</p><p class="kpi-sub">Vendor cost: {fmt_money(post_cost)} + markup</p></div>\n'
 html += '        </div>\n'
 
 # -- Inventory gauge: actual vs Broadridge 2-3 month policy --
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:12px;">\n'
-html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:12px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:600;color:#82B4FF;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
 html += inventory_gauge + '\n'
-html += f'            <p style="font-size:12px;color:#6D6E71;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage_adj)}/month (incl. wastage at contract max). Policy range: {fmt_num(avg_monthly_usage_adj*2)} (2-mo) to {fmt_num(avg_monthly_usage_adj*3)} (3-mo).</p>\n'
+html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage_adj)}/month (incl. wastage at contract max). Policy range: {fmt_num(avg_monthly_usage_adj*2)} (2-mo) to {fmt_num(avg_monthly_usage_adj*3)} (3-mo).</p>\n'
 html += '        </div>\n'
 
-# -- Key findings (promoted to top) --
-html += '        <div style="margin-top:16px;font-size:14px;color:#333;line-height:1.8;">\n'
-html += '            <ul style="margin:0;padding-left:20px;">\n'
-html += f'            <li>Implied inventory of <strong>{fmt_num(post_adj_variance)}</strong> envelopes = <strong>{buffer_months:.1f} months</strong> of buffer stock after accounting for contractual wastage (Broadridge policy: 2&ndash;3 months).</li>\n'
-html += f'            <li>Average monthly usage declined <strong>{usage_decline:.0f}%</strong> from {fmt_num(usage_2022)}/mo (2022) to {fmt_num(usage_2025)}/mo (2025), consistent with the 30% print reduction target in the 2022 renewal term sheet.</li>\n'
-html += f'            <li>Purchasing trajectory has corrected: 2022 over-purchased by 20.3% building initial buffer; 2024&ndash;2025 are within 3% of usage.</li>\n'
-html += f'            <li>Contractual wastage allowance of <strong>{fmt_num(total_wastage_allowance)}</strong> envelopes applied (5% pre-2024, 2% post-amendment). Reported spoils: {fmt_num(post_spoils)} ({spoilage_rate:.1f}%); actual wastage (10&ndash;15% per Broadridge) is embedded in the &ldquo;Used&rdquo; figure.</li>\n'
-html += '            </ul>\n'
+# -- Wastage discrepancy callout --
+# Broadridge admits 10-15% actual wastage; contract allows only 5%/2%
+_pre24_used = sum(post_yearly[y][1] for y in post_yearly if y < 2024)
+_post24_used = sum(post_yearly[y][1] for y in post_yearly if y >= 2024)
+_contract_waste = int(_pre24_used * 0.05 + _post24_used * 0.02)
+_actual_waste_lo = int(post_used * 0.10)
+_actual_waste_hi = int(post_used * 0.15)
+_excess_lo = _actual_waste_lo - _contract_waste
+_excess_hi = _actual_waste_hi - _contract_waste
+_excess_cost_lo = int(_excess_lo * post_avg_unit_cost)
+_excess_cost_hi = int(_excess_hi * post_avg_unit_cost)
+
+html += '        <div class="bottom-line" style="border-left-color:#EF5350;margin-top:20px;margin-bottom:20px;">\n'
+html += '            <p class="bl-heading" style="color:#EF5350;">Wastage discrepancy &mdash; Broadridge exceeds contract limits</p>\n'
+html += f'            <p>Broadridge personnel have confirmed in writing that actual envelope wastage runs <strong>10&ndash;15%</strong> '
+html += f'(Brandon Koebel, Sep&ndash;Nov 2022). The contract caps the wastage charge at <strong>5%</strong> (original, through Dec 2023) '
+html += f'and <strong>2%</strong> (Amendment No. 1, Jan 2024+).</p>\n'
+html += f'            <p style="margin-top:8px;">Applied to post-settlement usage of {fmt_num(post_used)} envelopes:</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += '                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Contract max wastage (5%/2%)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_num(_contract_waste)} envelopes</td></tr>\n'
+html += '                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Actual wastage at 10%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#FFA726;font-weight:600;">{fmt_num(_actual_waste_lo)} envelopes</td></tr>\n'
+html += '                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Actual wastage at 15%</td>'
+html += f'<td style="border:none;padding:4px 0;color:#EF5350;font-weight:600;">{fmt_num(_actual_waste_hi)} envelopes</td></tr>\n'
+html += '                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Excess beyond contract</td>'
+html += f'<td style="border:none;padding:4px 0;color:#EF5350;font-weight:600;">{fmt_num(_excess_lo)}&ndash;{fmt_num(_excess_hi)} envelopes ({fmt_money(_excess_cost_lo)}&ndash;{fmt_money(_excess_cost_hi)})</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="margin-top:8px;">This excess wastage is embedded in the &ldquo;Used&rdquo; figure reported by Broadridge &mdash; '
+html += f'Apex is billed for wastage at the contract rate, but Broadridge consumes 2&ndash;7.5&times; more than what the contract allows. '
+html += f'The cost of excess wastage falls on Broadridge per Section 4.</p>\n'
 html += '        </div>\n'
 
-# -- Year-by-year table --
+# -- Year-by-year table (with cost) --
 html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
-html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th><th>Avg Mo Used</th></tr></thead>\n'
+html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th><th>Invoiced</th><th>Unit Cost</th></tr></thead>\n'
 html += '            <tbody>\n'
 for yr in sorted(post_yearly.keys()):
     d = post_yearly[yr]
-    yp, yu, ym, ys, mc = d
+    yp, yu, ym, ys, mc, yc, yi = d
     yv = yp - yu
     vc = var_color(yv)
     vpct = yv / yp if yp else 0
-    avg_u = yu / mc if mc else 0
+    y_uc = yc / yp if yp else 0
     yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
     html += f'            <tr><td>{yr_label}</td>'
     html += f'<td class="num">{fmt_num(yp)}</td>'
     html += f'<td class="num">{fmt_num(yu)}</td>'
     html += f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(yv)}</td>'
     html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
-    html += f'<td class="num">{fmt_num(avg_u)}</td></tr>\n'
+    html += f'<td class="num">{fmt_money(yi)}</td>'
+    html += f'<td class="num">${y_uc:.4f}</td></tr>\n'
 # Total row
 html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_variance/post_purchased if post_purchased else 0)}</strong></td>'
-html += f'<td class="num"><strong>{fmt_num(post_used/post_months if post_months else 0)}</strong></td></tr>\n'
+html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td>'
+html += f'<td class="num"><strong>${post_avg_unit_cost:.4f}</strong></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
+
+# -- Forward projection --
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:20px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">2026 projection (at current run-rate)</p>\n'
+html += '            <div class="kpi-grid" style="margin-bottom:0;">\n'
+html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Projected Usage</p><p class="kpi-value" style="color:#5B9BF7;font-size:22px;">{fmt_num(avg_monthly_usage_adj * 12)}</p><p class="kpi-sub">{fmt_num(avg_monthly_usage_adj)}/mo &times; 12</p></div>\n'
+html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Projected Cost</p><p class="kpi-value" style="color:#5B9BF7;font-size:22px;">{fmt_money(projected_annual_inv)}</p><p class="kpi-sub">Based on trailing 6-mo invoiced</p></div>\n'
+html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">vs. 2022 Cost</p><p class="kpi-value" style="color:#4CAF79;font-size:22px;">{fmt_money(projected_annual_inv - post_yearly[2022][6])}</p><p class="kpi-sub">{(projected_annual_inv - post_yearly[2022][6]) / post_yearly[2022][6] * 100:+.0f}% from 2022</p></div>\n'
+html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Buffer Covers</p><p class="kpi-value" style="color:{post_var_color};font-size:22px;">{buffer_months:.1f} mo</p><p class="kpi-sub">Before new purchases needed</p></div>\n'
+html += '            </div>\n'
+html += '        </div>\n'
 
 # -- Full-period context (secondary, not KPI cards) --
 full_var_pct = net_variance / total_purchased * 100 if total_purchased else 0
@@ -1218,8 +1063,8 @@ html += '    </div>\n'
 html += '    <div class="section-body">\n'
 
 # -- Headline callout --
-html += f'        <div class="bottom-line" style="border-left-color:#E65100;margin-bottom:20px;">\n'
-html += f'            <p class="bl-heading" style="color:#E65100;">Where the overstock is &mdash; ${total_excess_dollars:,.0f} in excess inventory</p>\n'
+html += f'        <div class="bottom-line" style="border-left-color:#FFA726;margin-bottom:20px;">\n'
+html += f'            <p class="bl-heading" style="color:#FFA726;">Where the overstock is &mdash; ${total_excess_dollars:,.0f} in excess inventory</p>\n'
 html += f'            <p><strong>${excess_from_retired:,.0f}</strong> ({excess_pct_of_total:.0f}% of the excess) '
 html += f'is in <strong>three retired or low-volume foreign mail envelopes</strong> '
 html += f'that Broadridge continued purchasing after the Oct 2022 postal permit transition. '
@@ -1248,20 +1093,20 @@ html += '<th>Action</th>'
 html += '</tr></thead>\n'
 html += '            <tbody>\n' + sku_buffer_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += f'        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Post-settlement scope (Mar 2022 &ndash; Dec 2025). Wastage applied at contractual max: <strong>5%</strong> (Jan 2019 contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Variance = Purchased &minus; Used &minus; Wastage. Buffer months = adjusted variance / trailing 6-month adjusted usage. Excess $ = units above 3-month target &times; avg unit cost.</p>\n'
+html += f'        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Post-settlement scope (Mar 2022 &ndash; Dec 2025). Wastage applied at contractual max: <strong>5%</strong> (Jan 2019 contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Variance = Purchased &minus; Used &minus; Wastage. Buffer months = adjusted variance / trailing 6-month adjusted usage. Excess $ = units above 3-month target &times; avg unit cost.</p>\n'
 
 # -- NI/PFC transition context --
 html += '        <div class="info-box" style="margin-top:20px;">\n'
-html += '            <p style="font-size:13px;font-weight:700;color:#052390;margin:0 0 10px;">Key context: #10 Confirms + Letters &mdash; NI to PFC transition (Oct 2022)</p>\n'
+html += '            <p style="font-size:13px;font-weight:700;color:#82B4FF;margin:0 0 10px;">Key context: #10 Confirms + Letters &mdash; NI to PFC transition (Oct 2022)</p>\n'
 html += '            <p style="font-size:13px;line-height:1.7;margin:0 0 10px;"><strong>PFC</strong> (Pre-Sorted First-Class) = postage permit pre-printed on the envelope, domestic mail only. <strong>NI</strong> (No Imprint) = no postage printed, used for foreign mail where postage is applied at mailing.</p>\n'
 html += '            <p style="font-size:13px;line-height:1.7;margin:0 0 10px;"><strong>Before Oct 2022:</strong> All fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI.<br>'
 html += '            <strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22); foreign mail remained on ENVCONPFSN10NI at ~8K/month.</p>\n'
 
-html += '            <div style="background:#F5F5F7;border-left:3px solid #2954F0;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#333;">\n'
+html += '            <div style="background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#E0E1E6;">\n'
 html += '                <strong>Brandon Koebel (Mar 31, 2023):</strong> &ldquo;ENVAPXN10PFSCONN10IND(10/22) is a new revision of the ENVCONPFSN10NI. It was procured in October of 2022 to replace ENVCONPFSN10NI. The new version contains a minor update to the postal permit in order to get a better postage rate.&rdquo;\n'
 html += '            </div>\n'
 
-html += '            <div style="background:#F5F5F7;border-left:3px solid #2954F0;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#333;">\n'
+html += '            <div style="background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#E0E1E6;">\n'
 html += '                <strong>Brandon Koebel (May 12, 2023):</strong> &ldquo;The NI were not retired, we just use those less frequently (for foreign mail). We had major spikes of letters in the last 3 weeks and already had the NI version stored at the vendor, so we ordered those and added an indicia in order to make our SLA&rsquo;s.&rdquo;\n'
 html += '            </div>\n'
 
@@ -1280,8 +1125,8 @@ html += '    <div class="section-body collapsed">\n'
 
 # Filter dropdown
 html += '        <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">\n'
-html += '            <label for="sku-filter" style="font-size:13px;font-weight:600;color:#052390;">Filter by envelope type:</label>\n'
-html += '            <select id="sku-filter" onchange="filterMonthlyDetail(this.value)" style="font-size:13px;padding:6px 12px;border:1px solid #E2E2E2;border-radius:8px;background:#FFFFFF;color:#333;min-width:300px;cursor:pointer;">\n'
+html += '            <label for="sku-filter" style="font-size:13px;font-weight:600;color:#82B4FF;">Filter by envelope type:</label>\n'
+html += '            <select id="sku-filter" onchange="filterMonthlyDetail(this.value)" style="font-size:13px;padding:6px 12px;border:1px solid #3A3B40;border-radius:8px;background:#252629;color:#E0E1E6;min-width:300px;cursor:pointer;">\n'
 html += '            </select>\n'
 html += '        </div>\n'
 
@@ -1292,7 +1137,7 @@ html += '<th>Month</th><th>Purchased</th><th>Used</th><th>Wastage</th><th>Adj. V
 html += '</tr></thead>\n'
 html += '            <tbody id="monthly-detail-tbody"></tbody>\n'
 html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data). Wastage at contractual max (5% pre-2024, 2% post-2024).</p>\n'
+html += '        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data). Wastage at contractual max (5% pre-2024, 2% post-2024).</p>\n'
 html += '    </div>\n</div>\n\n'
 
 # ===== REFERENCE (collapsed by default) =====
@@ -1304,32 +1149,47 @@ html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
 
 # Contract Language
-html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 16px;">Contract terms &mdash; envelope materials</h3>\n'
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 16px;">Contract terms &mdash; envelope materials</h3>\n'
 
 # Original contract
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>\n'
-html += '            <p style="font-size:12px;color:#6D6E71;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019. Signed by William Capuzzi (CEO, Apex) and Joseph Lalli (VP, Broadridge).</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019. Signed by William Capuzzi (CEO, Apex) and Joseph Lalli (VP, Broadridge).</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
 html += '                &ldquo;Materials (such as paper, envelopes, and inserts) and postage, presort and insert related fees are not included in the Annual Fee and will be charged separately. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
 html += '            </blockquote>\n'
 html += '        </div>\n'
 
 # Amendment
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
-html += '            <p style="font-size:12px;color:#6D6E71;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Signed by William Brennan (CAO, Apex) and Doug Deschutter (Co-President ICS, Broadridge). Term extended through December 31, 2028.</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Signed by William Brennan (CAO, Apex) and Doug Deschutter (Co-President ICS, Broadridge). Term extended through December 31, 2028.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
 html += '                &ldquo;Materials are billed at inventory cost plus 10% margin. Inventory cost means for (i) Client specific inventory: vendor price; and (ii) generic inventory: vendor price plus wastage as follows: <strong>10% for continuous form, 3% for cutsheet, and 2% for envelopes.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
 html += '            </blockquote>\n'
 html += '        </div>\n'
 
 # Materials obligation
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
-html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>\n'
-html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
 html += '                &ldquo;Client will specify the materials (paper, inserts and envelope) (&ldquo;Materials&rdquo;) to be used; provided, however, that materials specified must conform to Broadridge print and insert equipment specifications. <strong>Broadridge shall be responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes</strong>, except where Client is responsible for Materials as specified in Section 3.&rdquo;\n'
 html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Broadridge confirmation — wastage rates (Denci + Koebel emails)
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 8px;">Broadridge Confirmation &mdash; Wastage Rates</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:0 0 8px;">Christopher Denci (ICS Account Manager), email to Terry Ray, August 23, 2023.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;The current agreement reflects Inventory Cost Plus 10% margin. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> Generic stock (envelopes): unit rate billed based on usage. Client-specific stock: unit rate billed based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 8px;">Brandon Koebel (Sr. Client Relationship Manager), emails Sep&ndash;Nov 2022.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#252629;border-left:3px solid #5B9BF7;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#E0E1E6;">\n'
+html += '                &ldquo;Wastage is roughly 10%&hellip; This includes envelopes that are damaged, need to be reprinted and reinserted, etc.&rdquo; (Nov 7, 2022)<br>\n'
+html += '                &ldquo;Did not account for any waste or spoilage (<strong>typically 10&ndash;15%</strong>).&rdquo; (Sep 29, 2022)\n'
+html += '            </blockquote>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;"><strong style="color:#E0E1E6;">Note:</strong> Contractual wastage (billed to Apex) is 5% pre-2024 / 2% post-amendment. Operational wastage (10&ndash;15%) is higher but embedded in the &ldquo;Used&rdquo; figure &mdash; not separately charged.</p>\n'
 html += '        </div>\n'
 
 # Summary table
@@ -1342,13 +1202,13 @@ html += '            </tbody>\n'
 html += '        </table></div>\n'
 
 # Envelope Specifications
-html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 12px;">Envelope specifications</h3>\n'
-html += '        <p style="font-size:13px;color:#6D6E71;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 12px;">Envelope specifications</h3>\n'
+html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        <div class="table-wrap"><table>\n'
 html += '            <thead><tr><th>WMS Code</th><th>Mail Type</th><th>Size</th><th>Style</th><th>Postage</th><th>Notes</th></tr></thead>\n'
 html += '            <tbody>\n' + envelope_spec_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += '        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#6D6E71;">\n'
+html += '        <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#9A9BA0;">\n'
 html += '            <span><strong>PFC</strong> = Pre-printed First-Class permit (domestic)</span>\n'
 html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; postage applied at mailing)</span>\n'
 html += '            <span><strong>DW</strong> = Double Window</span>\n'
@@ -1428,9 +1288,9 @@ function fmtPct(v) {
     return (v * 100).toFixed(1) + '%';
 }
 function varColor(v) {
-    if (v > 0) return '#186741';
-    if (v < 0) return '#9D1526';
-    return '#6D6E71';
+    if (v > 0) return '#4CAF79';
+    if (v < 0) return '#EF5350';
+    return '#9A9BA0';
 }
 
 function filterMonthlyDetail(sku) {
@@ -1459,7 +1319,7 @@ function filterMonthlyDetail(sku) {
             '<td><strong>' + yrLabel + '</strong></td>' +
             '<td class="num"><strong>' + fmtNum(yp) + '</strong></td>' +
             '<td class="num"><strong>' + fmtNum(yu) + '</strong></td>' +
-            '<td class="num" style="color:#6D6E71"><strong>' + fmtNum(yw) + '</strong></td>' +
+            '<td class="num" style="color:#9A9BA0"><strong>' + fmtNum(yw) + '</strong></td>' +
             '<td class="num" style="color:' + vc + ';font-weight:700"><strong>' + fmtNum(yv) + '</strong></td>' +
             '<td class="num" style="color:' + vc + ';font-weight:700"><strong>' + fmtPct(vpct) + '</strong></td>' +
             '<td class="num" style="color:' + rbc + ';font-weight:700"><strong>' + fmtNum(rb) + '</strong></td>';
@@ -1485,14 +1345,14 @@ function filterMonthlyDetail(sku) {
 
         var vc = varColor(v);
         var rbc = varColor(runBal);
-        var bg = (i % 2 === 1) ? '#F5F5F7' : '#FFFFFF';
+        var bg = (i % 2 === 1) ? '#252629' : '#1E1F23';
         var tr = document.createElement('tr');
         tr.style.background = bg;
         tr.innerHTML =
             '<td>' + r.m + '</td>' +
             '<td class="num">' + fmtNum(r.p) + '</td>' +
             '<td class="num">' + fmtNum(r.u) + '</td>' +
-            '<td class="num" style="color:#6D6E71">' + fmtNum(r.w) + '</td>' +
+            '<td class="num" style="color:#9A9BA0">' + fmtNum(r.w) + '</td>' +
             '<td class="num" style="color:' + vc + ';font-weight:600">' + fmtNum(v) + '</td>' +
             '<td class="num" style="color:' + vc + '">' + fmtPct(r.vp) + '</td>' +
             '<td class="num" style="color:' + rbc + ';font-weight:600">' + fmtNum(runBal) + '</td>';
@@ -1514,7 +1374,7 @@ function filterMonthlyDetail(sku) {
         '<td><strong>Grand Total</strong></td>' +
         '<td class="num"><strong>' + fmtNum(totalP) + '</strong></td>' +
         '<td class="num"><strong>' + fmtNum(totalU) + '</strong></td>' +
-        '<td class="num" style="color:#6D6E71"><strong>' + fmtNum(totalW) + '</strong></td>' +
+        '<td class="num" style="color:#9A9BA0"><strong>' + fmtNum(totalW) + '</strong></td>' +
         '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtNum(gv) + '</strong></td>' +
         '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtPct(gpct) + '</strong></td>' +
         '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtNum(runBal) + '</strong></td>';
