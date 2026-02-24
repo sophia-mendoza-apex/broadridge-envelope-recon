@@ -126,11 +126,11 @@ post_cost = post["Purchase Cost"].sum()
 post_invoiced = post["Invoiced Amount"].sum()
 post_avg_unit_cost = post_cost / post_purchased if post_purchased else 0
 
-# Trailing 6-month cost for projection
-recent_6_cost = monthly.tail(6)["Purchase Cost"].sum()
-recent_6_inv = monthly.tail(6)["Invoiced Amount"].sum()
-projected_annual_cost = recent_6_cost * 2
-projected_annual_inv = recent_6_inv * 2
+# Trailing 12-month cost for projection
+recent_12_cost = monthly.tail(12)["Purchase Cost"].sum()
+recent_12_inv = monthly.tail(12)["Invoiced Amount"].sum()
+projected_annual_cost = recent_12_cost
+projected_annual_inv = recent_12_inv
 
 # Billing basis discrepancy — contract says "usage", Broadridge bills on "receipt"
 avg_inv_per_unit = post_invoiced / post_purchased if post_purchased else 0
@@ -139,9 +139,9 @@ billing_excess = post_invoiced - usage_based_invoice
 # Monthly breakdown: months with 0 purchases but non-zero usage → $0 billed
 zero_purchase_usage_months = len(post[(post["Envelopes Purchased"] == 0) & (post["Envelopes Used (Volume)"] > 0)])
 
-# Rolling avg monthly usage (last 6 months) for buffer stock calculation
-recent_6 = monthly.tail(6)
-avg_monthly_usage = int(recent_6["Envelopes Used (Volume)"].mean())
+# Rolling avg monthly usage (last 12 months) for buffer stock calculation
+recent_12 = monthly.tail(12)
+avg_monthly_usage = int(recent_12["Envelopes Used (Volume)"].mean())
 
 
 # ---------------------------------------------------------------------------
@@ -160,25 +160,37 @@ WASTAGE_POST_2024 = 0.02
 def get_wastage_rate(month_label):
     return WASTAGE_POST_2024 if month_label_to_sortkey(month_label) >= WASTAGE_CUTOVER else WASTAGE_PRE_2024
 
-# Add wastage-adjusted usage column
+# Add wastage-adjusted usage column (keep float precision, round at aggregate level)
 ut_post = ut_post.copy()
 ut_post["Wastage Rate"] = ut_post["Month"].apply(get_wastage_rate)
-ut_post["Wastage"] = (ut_post["Envelopes Used"] * ut_post["Wastage Rate"]).round(0).astype(int)
-ut_post["Adj Used"] = ut_post["Envelopes Used"] + ut_post["Wastage"]
+ut_post["Wastage_raw"] = ut_post["Envelopes Used"] * ut_post["Wastage Rate"]  # float
+ut_post["Adj Used_raw"] = ut_post["Envelopes Used"] + ut_post["Wastage_raw"]
 
-# Trailing 6 months usage by type
-last_6_usage_months = sorted(ut_post["Month"].unique(), key=month_label_to_sortkey)[-6:]
-ut_trail6 = ut_post[ut_post["Month"].isin(last_6_usage_months)]
+# Trailing 12 months usage by type
+last_12_usage_months = sorted(ut_post["Month"].unique(), key=month_label_to_sortkey)[-12:]
+ut_trail12 = ut_post[ut_post["Month"].isin(last_12_usage_months)]
 
 # Post-settlement lookups by SKU (raw and wastage-adjusted)
 post_purchase_by_sku = bt_post.groupby("Envelope Type")["Purchased"].sum().to_dict()
 post_usage_by_sku = ut_post.groupby("Envelope Type")["Envelopes Used"].sum().to_dict()
-post_wastage_by_sku = ut_post.groupby("Envelope Type")["Wastage"].sum().to_dict()
-post_adj_usage_by_sku = ut_post.groupby("Envelope Type")["Adj Used"].sum().to_dict()
-trail6_usage_by_sku = ut_trail6.groupby("Envelope Type")["Adj Used"].sum().to_dict()
+# Wastage: accumulate as floats, round at aggregate level per type
+_wastage_by_sku_float = ut_post.groupby("Envelope Type")["Wastage_raw"].sum().to_dict()
+post_wastage_by_sku = {k: int(round(v)) for k, v in _wastage_by_sku_float.items()}
+_adj_used_by_sku_float = ut_post.groupby("Envelope Type")["Adj Used_raw"].sum().to_dict()
+post_adj_usage_by_sku = {k: int(round(v)) for k, v in _adj_used_by_sku_float.items()}
+trail12_usage_by_sku = {k: int(round(v)) for k, v in ut_trail12.groupby("Envelope Type")["Adj Used_raw"].sum().to_dict().items()}
 
-# Overall wastage totals for KPIs
-total_wastage_allowance = int(ut_post["Wastage"].sum())
+# Authoritative monthly-level wastage total (matches monthly detail grand total)
+total_wastage_allowance = sum(int(safe(r["Envelopes Used (Volume)"]) * get_wastage_rate(r["Month"])) for _, r in post.iterrows())
+
+# Reconcile SKU-level wastage to authoritative monthly total
+_sku_wastage_sum = sum(post_wastage_by_sku.values())
+if _sku_wastage_sum != total_wastage_allowance:
+    _delta = total_wastage_allowance - _sku_wastage_sum
+    # Adjust the largest type's wastage so the sum equals total_wastage_allowance exactly
+    _largest_sku = max(post_wastage_by_sku, key=post_wastage_by_sku.get)
+    post_wastage_by_sku[_largest_sku] += _delta
+    post_adj_usage_by_sku[_largest_sku] += _delta
 
 # SKU-level buffer analysis — list of (sku, purchased, used, variance, avg_mo_usage, buffer_months, note)
 SKU_DISPLAY_NAMES = {
@@ -213,8 +225,8 @@ for sku in all_sku_keys:
     w = post_wastage_by_sku.get(sku, 0)
     au = post_adj_usage_by_sku.get(sku, 0)
     v = p - au  # variance against adjusted usage (incl. wastage)
-    t6 = trail6_usage_by_sku.get(sku, 0)  # already adjusted
-    avg_mo = t6 / 6 if t6 > 0 else 0
+    t12 = trail12_usage_by_sku.get(sku, 0)  # already adjusted
+    avg_mo = t12 / 12 if t12 > 0 else 0
     buf_mo = v / avg_mo if avg_mo > 0 else (999 if v > 0 else -999 if v < 0 else 0)
     display = SKU_DISPLAY_NAMES.get(sku, sku)
     lp = last_purchase_by_sku.get(sku, None)
@@ -264,7 +276,7 @@ for pfc_sku, ni_sku in _INTERCHANGEABLE_PAIRS.items():
 # Filter out noise (tax forms with 0 purchases post-settlement)
 # Tuple: (sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action)
 #         0     1        2  3  4  5   6  7       8       9   10  11              12
-sku_buffer_data = [d for d in sku_buffer_data if not (d[2] == 0 and abs(d[5]) <= 1)]
+sku_buffer_data = [d for d in sku_buffer_data if not (d[2] == 0 and d[5] == 0)]
 
 # Sort by excess dollars descending (biggest exposure first)
 sku_buffer_data.sort(key=lambda d: -d[11])
@@ -617,8 +629,8 @@ kpi_var_color = "#EF5350" if net_variance < 0 else "#4CAF79"
 # --- Post-settlement derived values (wastage-adjusted) ---
 post_adj_used = post_used + total_wastage_allowance
 post_adj_variance = post_purchased - post_adj_used
-trail6_adj_total = sum(d[7] for d in sku_buffer_data)  # sum of avg_mo (already per-month)
-avg_monthly_usage_adj = int(trail6_adj_total) if trail6_adj_total > 0 else avg_monthly_usage
+trail12_adj_total = sum(d[7] for d in sku_buffer_data)  # sum of avg_mo (already per-month)
+avg_monthly_usage_adj = int(trail12_adj_total) if trail12_adj_total > 0 else avg_monthly_usage
 post_var_color = "#4CAF79" if post_adj_variance >= 0 else "#EF5350"
 buffer_months = post_adj_variance / avg_monthly_usage_adj if avg_monthly_usage_adj else 0
 
@@ -971,14 +983,12 @@ html += '        </div>\n'
 html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-top:12px;border:1px solid #2A2B30;">\n'
 html += '            <p style="font-size:13px;font-weight:600;color:#82B4FF;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
 html += inventory_gauge + '\n'
-html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage_adj)}/month (incl. wastage at contract max). Policy range: {fmt_num(avg_monthly_usage_adj*2)} (2-mo) to {fmt_num(avg_monthly_usage_adj*3)} (3-mo).</p>\n'
+html += f'            <p style="font-size:12px;color:#9A9BA0;margin:8px 0 0;">Based on trailing 12-month average usage of {fmt_num(avg_monthly_usage_adj)}/month (incl. wastage at contract max). Policy range: {fmt_num(avg_monthly_usage_adj*2)} (2-mo) to {fmt_num(avg_monthly_usage_adj*3)} (3-mo).</p>\n'
 html += '        </div>\n'
 
 # -- Wastage discrepancy callout --
 # Broadridge admits 10-15% actual wastage; contract allows only 5%/2%
-_pre24_used = sum(post_yearly[y][1] for y in post_yearly if y < 2024)
-_post24_used = sum(post_yearly[y][1] for y in post_yearly if y >= 2024)
-_contract_waste = int(_pre24_used * 0.05 + _post24_used * 0.02)
+_contract_waste = total_wastage_allowance  # reuse authoritative monthly-level total
 _actual_waste_lo = int(post_used * 0.10)
 _actual_waste_hi = int(post_used * 0.15)
 _excess_lo = _actual_waste_lo - _contract_waste
@@ -1061,7 +1071,7 @@ html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 
 html += '            <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 12px;">2026 projection (at current run-rate)</p>\n'
 html += '            <div class="kpi-grid" style="margin-bottom:0;">\n'
 html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Projected Usage</p><p class="kpi-value" style="color:#5B9BF7;font-size:22px;">{fmt_num(avg_monthly_usage_adj * 12)}</p><p class="kpi-sub">{fmt_num(avg_monthly_usage_adj)}/mo &times; 12</p></div>\n'
-html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Projected Cost</p><p class="kpi-value" style="color:#5B9BF7;font-size:22px;">{fmt_money(projected_annual_inv)}</p><p class="kpi-sub">Based on trailing 6-mo invoiced</p></div>\n'
+html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Projected Cost</p><p class="kpi-value" style="color:#5B9BF7;font-size:22px;">{fmt_money(projected_annual_inv)}</p><p class="kpi-sub">Based on trailing 12-mo invoiced</p></div>\n'
 html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">vs. 2022 Cost</p><p class="kpi-value" style="color:#4CAF79;font-size:22px;">{fmt_money(projected_annual_inv - post_yearly[2022][6])}</p><p class="kpi-sub">{(projected_annual_inv - post_yearly[2022][6]) / post_yearly[2022][6] * 100:+.0f}% from 2022</p></div>\n'
 html += f'                <div class="kpi-card" style="padding:16px 20px;"><p class="kpi-label">Buffer Covers</p><p class="kpi-value" style="color:{post_var_color};font-size:22px;">{buffer_months:.1f} mo</p><p class="kpi-sub">Before new purchases needed</p></div>\n'
 html += '            </div>\n'
@@ -1120,7 +1130,7 @@ html += '<th>Action</th>'
 html += '</tr></thead>\n'
 html += '            <tbody>\n' + sku_buffer_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
-html += f'        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Post-settlement scope (Mar 2022 &ndash; Dec 2025). Wastage applied at contractual max: <strong>5%</strong> (Jan 2019 contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Variance = Purchased &minus; Used &minus; Wastage. Buffer months = adjusted variance / trailing 6-month adjusted usage. Excess $ = units above 3-month target &times; avg unit cost.</p>\n'
+html += f'        <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">Post-settlement scope (Mar 2022 &ndash; Dec 2025). Wastage applied at contractual max: <strong>5%</strong> (Jan 2019 contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Variance = Purchased &minus; Used &minus; Wastage. Buffer months = adjusted variance / trailing 12-month adjusted usage. Excess $ = units above 3-month target &times; avg unit cost.</p>\n'
 
 # -- NI/PFC transition context --
 html += '        <div class="info-box" style="margin-top:20px;">\n'
