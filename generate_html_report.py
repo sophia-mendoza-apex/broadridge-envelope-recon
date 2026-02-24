@@ -158,6 +158,119 @@ ENVELOPE_GROUPS = [
 purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))
 usage_by_type_dict = dict(zip(usage_by_env_type["Envelope Type"], usage_by_env_type["Total Envelopes Used"]))
 
+# ---------------------------------------------------------------------------
+# Post-settlement per-SKU buffer stock analysis
+# ---------------------------------------------------------------------------
+bt_post = by_type_monthly[by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)]
+ut_post = usage_by_env_type_monthly[usage_by_env_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)]
+
+# Contractual max wastage rates (applied to usage to get total consumption)
+# Original contract (Jan 2019 – Dec 2023): 5% envelope wastage
+# Amendment No. 1 (Jan 2024 – present): 2% envelope wastage
+WASTAGE_CUTOVER = (24, 0)  # Jan-24
+WASTAGE_PRE_2024 = 0.05
+WASTAGE_POST_2024 = 0.02
+
+def get_wastage_rate(month_label):
+    return WASTAGE_POST_2024 if month_label_to_sortkey(month_label) >= WASTAGE_CUTOVER else WASTAGE_PRE_2024
+
+# Add wastage-adjusted usage column
+ut_post = ut_post.copy()
+ut_post["Wastage Rate"] = ut_post["Month"].apply(get_wastage_rate)
+ut_post["Wastage"] = (ut_post["Envelopes Used"] * ut_post["Wastage Rate"]).round(0).astype(int)
+ut_post["Adj Used"] = ut_post["Envelopes Used"] + ut_post["Wastage"]
+
+# Trailing 6 months usage by type
+last_6_usage_months = sorted(ut_post["Month"].unique(), key=month_label_to_sortkey)[-6:]
+ut_trail6 = ut_post[ut_post["Month"].isin(last_6_usage_months)]
+
+# Post-settlement lookups by SKU (raw and wastage-adjusted)
+post_purchase_by_sku = bt_post.groupby("Envelope Type")["Purchased"].sum().to_dict()
+post_usage_by_sku = ut_post.groupby("Envelope Type")["Envelopes Used"].sum().to_dict()
+post_wastage_by_sku = ut_post.groupby("Envelope Type")["Wastage"].sum().to_dict()
+post_adj_usage_by_sku = ut_post.groupby("Envelope Type")["Adj Used"].sum().to_dict()
+trail6_usage_by_sku = ut_trail6.groupby("Envelope Type")["Adj Used"].sum().to_dict()
+
+# Overall wastage totals for KPIs
+total_wastage_allowance = int(ut_post["Wastage"].sum())
+
+# SKU-level buffer analysis — list of (sku, purchased, used, variance, avg_mo_usage, buffer_months, note)
+SKU_DISPLAY_NAMES = {
+    "ENVAPXN10 Confirms+Letters (PFC)": "#10 Confirms + Letters (PFC)",
+    "ENVCONPFSN10NI": "#10 Confirms + Letters (NI)",
+    "ENVMEAPEXN14PFC": "N14 Fold Statement (PFC)",
+    "ENVMERIDGEN14NI11/08": "N14 Fold Statement (NI)",
+    "ENVMEAPEX9X12PFC": "9x12 Flat Statement (PFC)",
+    "ENVMERIDGE9X12NI11/08": "9x12 Flat Statement (NI)",
+    "ENVCONRIDGE9X12DW": "9x12 Flat Confirms (DW)",
+    "Tax Form Envelopes (1099/1099-R)": "Tax Forms (1099/1099-R)",
+    "Tax Form Envelopes (1042/IRA)": "Tax Forms (1042/IRA)",
+}
+
+# Last purchase/usage month and unit cost per SKU
+last_purchase_by_sku = bt_post.groupby("Envelope Type")["Month"].apply(lambda x: max(x, key=month_label_to_sortkey)).to_dict()
+cost_agg = bt_post.groupby("Envelope Type").agg({"Total Cost": "sum", "Purchased": "sum"})
+cost_agg["Unit Cost"] = cost_agg["Total Cost"] / cost_agg["Purchased"]
+unit_cost_by_sku = cost_agg["Unit Cost"].to_dict()
+
+all_sku_keys = sorted(
+    set(list(post_purchase_by_sku.keys()) + list(post_usage_by_sku.keys())),
+    key=lambda t: -(post_purchase_by_sku.get(t, 0) + post_usage_by_sku.get(t, 0))
+)
+
+# sku_buffer_data: (sku, display, purchased, used, wastage, adj_used, variance, avg_mo_adj,
+#                   buffer_months, last_purchase, unit_cost, excess_dollars, action)
+sku_buffer_data = []
+for sku in all_sku_keys:
+    p = post_purchase_by_sku.get(sku, 0)
+    u = post_usage_by_sku.get(sku, 0)
+    w = post_wastage_by_sku.get(sku, 0)
+    au = post_adj_usage_by_sku.get(sku, 0)
+    v = p - au  # variance against adjusted usage (incl. wastage)
+    t6 = trail6_usage_by_sku.get(sku, 0)  # already adjusted
+    avg_mo = t6 / 6 if t6 > 0 else 0
+    buf_mo = v / avg_mo if avg_mo > 0 else (999 if v > 0 else -999 if v < 0 else 0)
+    display = SKU_DISPLAY_NAMES.get(sku, sku)
+    lp = last_purchase_by_sku.get(sku, None)
+    uc = unit_cost_by_sku.get(sku, 0)
+
+    # Excess dollars: surplus above 3-month policy target, valued at unit cost
+    target_3mo = avg_mo * 3
+    excess_units = max(0, v - target_3mo)
+    excess_dollars = excess_units * uc
+
+    # Action recommendation
+    if buf_mo < 0:
+        action = "No action needed"
+    elif buf_mo > 100:
+        action = "Stop purchasing"
+    elif buf_mo > 6:
+        action = "Reduce orders"
+    elif buf_mo > 3:
+        action = "Monitor"
+    elif buf_mo >= 2:
+        action = "On target"
+    else:
+        action = "Increase orders"
+
+    sku_buffer_data.append((sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action))
+
+# Filter out noise (tax forms with 0 purchases post-settlement)
+# Tuple: (sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action)
+#         0     1        2  3  4  5   6  7       8       9   10  11              12
+sku_buffer_data = [d for d in sku_buffer_data if not (d[2] == 0 and abs(d[5]) <= 1)]
+
+# Sort by excess dollars descending (biggest exposure first)
+sku_buffer_data.sort(key=lambda d: -d[11])
+
+# Totals
+total_excess_dollars = sum(d[11] for d in sku_buffer_data)
+
+# Identify excess from retired/foreign SKUs
+retired_foreign_skus = {"ENVCONPFSN10NI", "ENVMERIDGEN14NI11/08", "ENVMERIDGE9X12NI11/08"}
+excess_from_retired = sum(d[11] for d in sku_buffer_data if d[0] in retired_foreign_skus)
+excess_pct_of_total = excess_from_retired / total_excess_dollars * 100 if total_excess_dollars > 0 else 0
+
 # Check for missing months (shown as alert banner if any gaps exist)
 def find_missing_months():
     expected = []
@@ -216,17 +329,18 @@ def build_svg_chart():
     return "\n".join(L)
 
 def build_monthly_rows():
-    """Build monthly rows (post-settlement scope) with annual subtotals and grand total."""
+    """Build monthly rows (post-settlement scope) with wastage, annual subtotals and grand total."""
     rows = []
     running_balance = 0
-    yr_p = yr_u = 0
+    yr_p = yr_u = yr_w = 0
     prev_year = None
 
     def _year_from_label(label):
         return 2000 + int(label.split('-')[1])
 
-    def _subtotal_row(year, yp, yu, rb):
-        yv = yp - yu
+    def _subtotal_row(year, yp, yu, yw, rb):
+        yau = yu + yw
+        yv = yp - yau
         vc = var_color(yv)
         rbc = var_color(rb)
         vpct = yv / yp if yp else 0
@@ -236,6 +350,7 @@ def build_monthly_rows():
             + f'<td><strong>{yr_label} Total</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yp)}</strong></td>'
             + f'<td class="num"><strong>{fmt_num(yu)}</strong></td>'
+            + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(yw)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(yv)}</strong></td>'
             + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(vpct)}</strong></td>'
             + f'<td class="num" style="color:{rbc};font-weight:700"><strong>{fmt_num_parens(rb)}</strong></td>'
@@ -246,36 +361,43 @@ def build_monthly_rows():
         cur_year = _year_from_label(r["Month"])
 
         if prev_year is not None and cur_year != prev_year:
-            rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
-            yr_p = yr_u = 0
+            rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
+            yr_p = yr_u = yr_w = 0
 
         prev_year = cur_year
         p = safe(r["Envelopes Purchased"])
         u = safe(r["Envelopes Used (Volume)"])
-        vv = p - u
+        w_rate = get_wastage_rate(r["Month"])
+        w = int(u * w_rate)
+        au = u + w
+        vv = p - au
         running_balance += vv
-        yr_p += p; yr_u += u
+        yr_p += p; yr_u += u; yr_w += w
 
         vc = var_color(vv)
         rbc = var_color(running_balance)
+        vpct = vv / p if p else 0
         bg = "#F5F5F7" if i % 2 == 1 else "#FFFFFF"
         rows.append(
             f'<tr style="background:{bg}">'
             + f'<td>{r["Month"]}</td>'
             + f'<td class="num">{fmt_num(p)}</td>'
             + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
             + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(vv)}</td>'
-            + f'<td class="num" style="color:{vc}">{fmt_pct(r["Variance %"])}</td>'
+            + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + f'<td class="num" style="color:{rbc};font-weight:600">{fmt_num_parens(running_balance)}</td>'
             + '</tr>'
         )
 
     # Final year subtotal
     if prev_year is not None:
-        rows.append(_subtotal_row(prev_year, yr_p, yr_u, running_balance))
+        rows.append(_subtotal_row(prev_year, yr_p, yr_u, yr_w, running_balance))
 
     # Grand total
-    gv = post_purchased - post_used
+    gw = sum(int(safe(r["Envelopes Used (Volume)"]) * get_wastage_rate(r["Month"])) for _, r in post.iterrows())
+    gau = post_used + gw
+    gv = post_purchased - gau
     vc = var_color(gv)
     rbc = var_color(running_balance)
     gpct = gv / post_purchased if post_purchased else 0
@@ -284,6 +406,7 @@ def build_monthly_rows():
         + f'<td><strong>Grand Total</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
         + f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(gw)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(gv)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_pct(gpct)}</strong></td>'
         + f'<td class="num" style="color:{vc};font-weight:700"><strong>{fmt_num_parens(running_balance)}</strong></td>'
@@ -397,11 +520,100 @@ def build_sku_recon_rows():
     )
     return "\n".join(rows)
 
+def _status_tag(buf_mo, action):
+    """Return a styled status pill for the buffer assessment."""
+    if buf_mo < 0:
+        return '<span style="background:#F3E5F5;color:#6A1B9A;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">DEFICIT</span>'
+    elif buf_mo > 100:
+        return '<span style="background:#FFEBEE;color:#B71C1C;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">EXCESS</span>'
+    elif buf_mo > 6:
+        return '<span style="background:#FFF3E0;color:#E65100;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">OVERSTOCKED</span>'
+    elif buf_mo > 3:
+        return '<span style="background:#FFFDE7;color:#F57F17;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">HIGH</span>'
+    elif buf_mo >= 2:
+        return '<span style="background:#E8F5E9;color:#186741;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">ON TARGET</span>'
+    else:
+        return '<span style="background:#FFF3E0;color:#E65100;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">LOW</span>'
+
+def build_sku_buffer_table():
+    """HTML table showing per-SKU buffer stock with wastage, dollars, and recommended action."""
+    # Tuple: (sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action)
+    #         0     1        2  3  4  5   6  7       8       9   10  11              12
+    rows = []
+    for d in sku_buffer_data:
+        sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action = d
+        vc = var_color(v)
+        status = _status_tag(buf_mo, action)
+
+        # Buffer months display
+        if buf_mo > 100:
+            buf_display = f"{buf_mo:.0f}"
+        elif buf_mo < -100:
+            buf_display = DASH
+        else:
+            buf_display = f"{buf_mo:.1f}"
+
+        # Last purchased display
+        lp_display = lp if lp else DASH
+
+        # Excess cost display
+        exc_display = f"${excess_dollars:,.0f}" if excess_dollars > 0 else DASH
+
+        # Action styling
+        if action == "Stop purchasing":
+            action_html = f'<span style="color:#B71C1C;font-weight:600;">{action}</span>'
+        elif action in ("Reduce orders", "Increase orders"):
+            action_html = f'<span style="color:#E65100;font-weight:600;">{action}</span>'
+        elif action == "On target":
+            action_html = f'<span style="color:#186741;">{action}</span>'
+        else:
+            action_html = f'<span style="color:#6D6E71;">{action}</span>'
+
+        rows.append(
+            '<tr>'
+            + f'<td class="env-name" style="font-weight:600;">{display}</td>'
+            + f'<td style="text-align:center;">{status}</td>'
+            + f'<td class="num">{fmt_num(p)}</td>'
+            + f'<td class="num">{fmt_num(u)}</td>'
+            + f'<td class="num" style="color:#6D6E71;">{fmt_num(w)}</td>'
+            + f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(v)}</td>'
+            + f'<td class="num">{buf_display}</td>'
+            + f'<td class="num">{exc_display}</td>'
+            + f'<td>{lp_display}</td>'
+            + f'<td>{action_html}</td>'
+            + '</tr>'
+        )
+
+    # Total row
+    tp = sum(d[2] for d in sku_buffer_data)
+    tu = sum(d[3] for d in sku_buffer_data)
+    tw = sum(d[4] for d in sku_buffer_data)
+    tau = sum(d[5] for d in sku_buffer_data)
+    tv = tp - tau
+    tvc = var_color(tv)
+    adj_avg_monthly = sum(d[7] for d in sku_buffer_data)
+    overall_buf = tv / adj_avg_monthly if adj_avg_monthly else 0
+    rows.append(
+        '<tr class="total-row">'
+        + f'<td><strong>Total</strong></td>'
+        + f'<td></td>'
+        + f'<td class="num"><strong>{fmt_num(tp)}</strong></td>'
+        + f'<td class="num"><strong>{fmt_num(tu)}</strong></td>'
+        + f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(tw)}</strong></td>'
+        + f'<td class="num" style="color:{tvc};font-weight:700"><strong>{fmt_num_parens(tv)}</strong></td>'
+        + f'<td class="num"><strong>{overall_buf:.1f}</strong></td>'
+        + f'<td class="num"><strong>${total_excess_dollars:,.0f}</strong></td>'
+        + f'<td></td>'
+        + f'<td></td>'
+        + '</tr>'
+    )
+    return "\n".join(rows)
+
 def build_inventory_gauge():
     """SVG gauge comparing actual inventory vs Broadridge 2-3 month policy."""
-    policy_min = avg_monthly_usage * 2
-    policy_max = avg_monthly_usage * 3
-    actual = post_variance
+    policy_min = avg_monthly_usage_adj * 2
+    policy_max = avg_monthly_usage_adj * 3
+    actual = post_adj_variance
     max_val = max(actual, policy_max) * 1.3
     excess = max(0, actual - policy_max)
 
@@ -501,18 +713,90 @@ def build_monthly_usage_trend():
 
 svg_chart = build_svg_chart()
 monthly_rows = build_monthly_rows()
+
+# Build per-SKU monthly JSON for interactive Monthly Detail
+import json as _json
+
+def build_monthly_detail_json():
+    """Build JSON: {sku: [{month, purchased, used, wastage, variance, var_pct}, ...], ...}"""
+    # Get sorted post-settlement months
+    post_months_list = sorted(post["Month"].unique(), key=month_label_to_sortkey)
+
+    # Build purchase lookup: (month, sku) -> purchased
+    purch_lookup = {}
+    for _, r in bt_post.iterrows():
+        purch_lookup[(r["Month"], r["Envelope Type"])] = int(r["Purchased"])
+
+    # Build usage lookup: (month, sku) -> used
+    usage_lookup = {}
+    for _, r in ut_post.iterrows():
+        usage_lookup[(r["Month"], r["Envelope Type"])] = int(r["Envelopes Used"])
+
+    # Get all SKU keys that appear in post-settlement data (exclude noise)
+    all_skus = sorted(
+        set(k[1] for k in purch_lookup.keys()) | set(k[1] for k in usage_lookup.keys()),
+        key=lambda t: -(sum(purch_lookup.get((m, t), 0) for m in post_months_list)
+                       + sum(usage_lookup.get((m, t), 0) for m in post_months_list))
+    )
+
+    data = {}
+    # "ALL" — aggregate view
+    all_rows = []
+    for m in post_months_list:
+        p = int(safe(post[post["Month"] == m]["Envelopes Purchased"].sum()))
+        u = int(safe(post[post["Month"] == m]["Envelopes Used (Volume)"].sum()))
+        w_rate = get_wastage_rate(m)
+        w = int(u * w_rate)
+        v = p - u - w
+        vpct = round(v / p, 4) if p else 0
+        all_rows.append({"m": m, "p": p, "u": u, "w": w, "v": v, "vp": vpct})
+    data["ALL"] = all_rows
+
+    # Per-SKU
+    for sku in all_skus:
+        sku_rows = []
+        has_data = False
+        for m in post_months_list:
+            p = purch_lookup.get((m, sku), 0)
+            u = usage_lookup.get((m, sku), 0)
+            if p == 0 and u == 0:
+                continue
+            has_data = True
+            w_rate = get_wastage_rate(m)
+            w = int(u * w_rate)
+            v = p - u - w
+            vpct = round(v / p, 4) if p else 0
+            sku_rows.append({"m": m, "p": p, "u": u, "w": w, "v": v, "vp": vpct})
+        if has_data:
+            data[sku] = sku_rows
+
+    return data
+
+monthly_detail_json = _json.dumps(build_monthly_detail_json())
+# Build display name map for dropdown
+sku_display_map = {"ALL": "All envelope types (combined)"}
+sku_display_map.update({d[0]: d[1] for d in sku_buffer_data})
+sku_dropdown_json = _json.dumps(sku_display_map)
+
 env_type_rows = build_env_type_rows()
 combined_env_rows = build_combined_env_rows()
 usage_product_rows = build_usage_by_product_rows()
 sku_recon_rows = build_sku_recon_rows()
-inventory_gauge = build_inventory_gauge()
-usage_trend_svg = build_monthly_usage_trend()
+sku_buffer_rows = build_sku_buffer_table()
 
 kpi_var_color = "#9D1526" if net_variance < 0 else "#186741"
 
-# --- Post-settlement derived values for Executive Summary ---
-post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
-buffer_months = post_variance / avg_monthly_usage if avg_monthly_usage else 0
+# --- Post-settlement derived values (wastage-adjusted) ---
+post_adj_used = post_used + total_wastage_allowance
+post_adj_variance = post_purchased - post_adj_used
+trail6_adj_total = sum(d[7] for d in sku_buffer_data)  # sum of avg_mo (already per-month)
+avg_monthly_usage_adj = int(trail6_adj_total) if trail6_adj_total > 0 else avg_monthly_usage
+post_var_color = "#186741" if post_adj_variance >= 0 else "#9D1526"
+buffer_months = post_adj_variance / avg_monthly_usage_adj if avg_monthly_usage_adj else 0
+
+# Build gauge AFTER adjusted values are computed
+inventory_gauge = build_inventory_gauge()
+usage_trend_svg = build_monthly_usage_trend()
 
 usage_2022 = post_yearly[2022][1] / post_yearly[2022][4] if post_yearly[2022][4] else 0
 usage_2025 = post_yearly[2025][1] / post_yearly[2025][4] if post_yearly[2025][4] else 0
@@ -778,8 +1062,7 @@ html += '</div>\n'
 # --- Nav ---
 html += '<nav class="nav">\n'
 html += '    <a href="#executive-summary">Summary</a>\n'
-html += '    <a href="#monthly-trend">Trend</a>\n'
-html += '    <a href="#envelope-types">By Type</a>\n'
+html += '    <a href="#envelope-types">Buffer by Type</a>\n'
 html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
 html += '    <a href="#reference">Reference</a>\n'
 html += '</nav>\n'
@@ -828,25 +1111,25 @@ html += '        </div>\n'
 # -- Post-settlement KPIs (what Apex is paying for — the numbers that matter) --
 html += '        <div class="kpi-grid">\n'
 html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025 ({post_months} mo)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">Spoilage: {spoilage_rate:.1f}% ({fmt_num(post_spoils)} of {fmt_num(post_used)})</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months at current usage</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage)}</p><p class="kpi-sub">Trailing 6 months</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used + Wastage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_adj_used)}</p><p class="kpi-sub">{fmt_num(post_used)} used + {fmt_num(total_wastage_allowance)} wastage (contract max)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_adj_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months at current usage + wastage</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage_adj)}</p><p class="kpi-sub">Trailing 6 months (incl. wastage)</p></div>\n'
 html += '        </div>\n'
 
 # -- Inventory gauge: actual vs Broadridge 2-3 month policy --
 html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:12px;">\n'
 html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
 html += inventory_gauge + '\n'
-html += f'            <p style="font-size:12px;color:#6D6E71;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage)}/month. Policy range: {fmt_num(avg_monthly_usage*2)} (2-mo) to {fmt_num(avg_monthly_usage*3)} (3-mo).</p>\n'
+html += f'            <p style="font-size:12px;color:#6D6E71;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage_adj)}/month (incl. wastage at contract max). Policy range: {fmt_num(avg_monthly_usage_adj*2)} (2-mo) to {fmt_num(avg_monthly_usage_adj*3)} (3-mo).</p>\n'
 html += '        </div>\n'
 
 # -- Key findings (promoted to top) --
 html += '        <div style="margin-top:16px;font-size:14px;color:#333;line-height:1.8;">\n'
 html += '            <ul style="margin:0;padding-left:20px;">\n'
-html += f'            <li>Implied inventory of <strong>{fmt_num(post_variance)}</strong> envelopes = <strong>{buffer_months:.1f} months</strong> of buffer stock at current usage rates (Broadridge policy: 2&ndash;3 months).</li>\n'
+html += f'            <li>Implied inventory of <strong>{fmt_num(post_adj_variance)}</strong> envelopes = <strong>{buffer_months:.1f} months</strong> of buffer stock after accounting for contractual wastage (Broadridge policy: 2&ndash;3 months).</li>\n'
 html += f'            <li>Average monthly usage declined <strong>{usage_decline:.0f}%</strong> from {fmt_num(usage_2022)}/mo (2022) to {fmt_num(usage_2025)}/mo (2025), consistent with the 30% print reduction target in the 2022 renewal term sheet.</li>\n'
 html += f'            <li>Purchasing trajectory has corrected: 2022 over-purchased by 20.3% building initial buffer; 2024&ndash;2025 are within 3% of usage.</li>\n'
-html += f'            <li>Reported spoilage: <strong>{fmt_num(post_spoils)}</strong> envelopes ({spoilage_rate:.1f}% of usage) &mdash; well within the 10% contractual wastage limit. Note: actual wastage (10&ndash;15% per Broadridge) is embedded in the &ldquo;Used&rdquo; figure, not separately reported.</li>\n'
+html += f'            <li>Contractual wastage allowance of <strong>{fmt_num(total_wastage_allowance)}</strong> envelopes applied (5% pre-2024, 2% post-amendment). Reported spoils: {fmt_num(post_spoils)} ({spoilage_rate:.1f}%); actual wastage (10&ndash;15% per Broadridge) is embedded in the &ldquo;Used&rdquo; figure.</li>\n'
 html += '            </ul>\n'
 html += '        </div>\n'
 
@@ -892,69 +1175,90 @@ html += '        </div>\n'
 html += '    </div>\n'
 html += '</div>\n\n'
 
-# ===== MONTHLY TREND =====
-html += '<div class="section" id="monthly-trend">\n'
+# ===== BUFFER STOCK BY ENVELOPE TYPE =====
+html += '<div class="section" id="envelope-types">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Monthly trend</h2>\n'
+html += '        <h2>Buffer stock by envelope type</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">\n'
-html += svg_chart
-html += '\n        </div>\n'
 
-# -- Rolling 6-month average usage trend --
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:20px;">\n'
-html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Rolling 6-month average usage</p>\n'
-html += usage_trend_svg + '\n'
+# -- Headline callout --
+html += f'        <div class="bottom-line" style="border-left-color:#E65100;margin-bottom:20px;">\n'
+html += f'            <p class="bl-heading" style="color:#E65100;">Where the overstock is &mdash; ${total_excess_dollars:,.0f} in excess inventory</p>\n'
+html += f'            <p><strong>${excess_from_retired:,.0f}</strong> ({excess_pct_of_total:.0f}% of the excess) '
+html += f'is in <strong>three retired or low-volume foreign mail envelopes</strong> '
+html += f'that Broadridge continued purchasing after the Oct 2022 postal permit transition. '
+
+# Find the most egregious SKU for the callout
+# Tuple: (sku, display, p, u, w, au, v, avg_mo, buf_mo, lp, uc, excess_dollars, action)
+top_sku = max(sku_buffer_data, key=lambda d: d[11])
+html += f'The largest exposure is <strong>{top_sku[1]}</strong>: last purchased <strong>{top_sku[9]}</strong>, '
+html += f'{top_sku[8]:.0f} months of buffer, ${top_sku[11]:,.0f} excess. '
+html += f'Meanwhile, the high-volume domestic envelopes that drive day-to-day operations are near or below the 2&ndash;3 month target.</p>\n'
+html += f'        </div>\n'
+
+# -- Per-SKU buffer stock table --
+html += '        <div class="table-wrap"><table>\n'
+html += '            <thead><tr>'
+html += '<th>Envelope Type</th>'
+html += '<th>Status</th>'
+html += '<th>Purchased</th>'
+html += '<th>Used</th>'
+html += '<th>Wastage<br><span style="font-size:10px;font-weight:400;text-transform:none;opacity:0.7;">contract max</span></th>'
+html += '<th>Adj.<br>Variance</th>'
+html += '<th>Buffer<br>(Months)</th>'
+html += '<th>Excess $<br><span style="font-size:10px;font-weight:400;text-transform:none;opacity:0.7;">above 3-mo target</span></th>'
+html += '<th>Last<br>Purchased</th>'
+html += '<th>Action</th>'
+html += '</tr></thead>\n'
+html += '            <tbody>\n' + sku_buffer_rows + '\n            </tbody>\n'
+html += '        </table></div>\n'
+html += f'        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Post-settlement scope (Mar 2022 &ndash; Dec 2025). Wastage applied at contractual max: <strong>5%</strong> (Jan 2019 contract, through Dec 2023) and <strong>2%</strong> (Amendment No. 1, Jan 2024+). Variance = Purchased &minus; Used &minus; Wastage. Buffer months = adjusted variance / trailing 6-month adjusted usage. Excess $ = units above 3-month target &times; avg unit cost.</p>\n'
+
+# -- NI/PFC transition context --
+html += '        <div class="info-box" style="margin-top:20px;">\n'
+html += '            <p style="font-size:13px;font-weight:700;color:#052390;margin:0 0 10px;">Key context: #10 Confirms + Letters &mdash; NI to PFC transition (Oct 2022)</p>\n'
+html += '            <p style="font-size:13px;line-height:1.7;margin:0 0 10px;"><strong>PFC</strong> (Pre-Sorted First-Class) = postage permit pre-printed on the envelope, domestic mail only. <strong>NI</strong> (No Imprint) = no postage printed, used for foreign mail where postage is applied at mailing.</p>\n'
+html += '            <p style="font-size:13px;line-height:1.7;margin:0 0 10px;"><strong>Before Oct 2022:</strong> All fold confirms, letters, and checks (domestic + foreign) used ENVCONPFSN10NI.<br>'
+html += '            <strong>After Oct 2022:</strong> Domestic mail switched to ENVAPXN10PFSCONN10IND(10/22); foreign mail remained on ENVCONPFSN10NI at ~8K/month.</p>\n'
+
+html += '            <div style="background:#F5F5F7;border-left:3px solid #2954F0;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#333;">\n'
+html += '                <strong>Brandon Koebel (Mar 31, 2023):</strong> &ldquo;ENVAPXN10PFSCONN10IND(10/22) is a new revision of the ENVCONPFSN10NI. It was procured in October of 2022 to replace ENVCONPFSN10NI. The new version contains a minor update to the postal permit in order to get a better postage rate.&rdquo;\n'
+html += '            </div>\n'
+
+html += '            <div style="background:#F5F5F7;border-left:3px solid #2954F0;border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.7;color:#333;">\n'
+html += '                <strong>Brandon Koebel (May 12, 2023):</strong> &ldquo;The NI were not retired, we just use those less frequently (for foreign mail). We had major spikes of letters in the last 3 weeks and already had the NI version stored at the vendor, so we ordered those and added an indicia in order to make our SLA&rsquo;s.&rdquo;\n'
+html += '            </div>\n'
+
+html += '            <p style="font-size:13px;line-height:1.7;margin:10px 0 0;"><strong>Impact:</strong> Broadridge purchased 3.6M NI envelopes post-settlement but only used 2.1M &mdash; purchasing continued at near pre-transition volumes despite domestic mail (~193K/mo) shifting to the PFC version, leaving only foreign mail (~8K/mo) on NI. This accounts for $82K of the excess inventory.</p>\n'
 html += '        </div>\n'
 
 html += '    </div>\n</div>\n\n'
 
-# ===== PURCHASES & USAGE BY ENVELOPE TYPE =====
-html += '<div class="section" id="envelope-types">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Purchases &amp; usage by envelope type</h2>\n'
-html += '        <span class="toggle">&#9660;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
-html += '        <div class="info-box" style="margin-top:16px;"><p><strong>Scope note:</strong> Envelope type breakdown covers the full contract period (Jan 2020 &ndash; Dec 2025) because type-level monthly data is not available in the source. Post-settlement purchases (Mar 2022+) account for ~70% of the totals shown.</p></div>\n'
-
-# -- SKU-level recon (purchased + used + variance + variance %) --
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">ENVCONPFSN10NI was replaced by ENVAPXN10&hellip;IND(10/22) in Oct 2022 (postal permit update). Usage shifted but both SKUs remain in purchase history. See the grouped table above for the combined view.</p>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-
-# -- Usage by product --
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">Usage by product</h3>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">Products map to envelopes: <strong>Monthly Statements / Efail Statements</strong> &rarr; N14 Fold or 9x12 Flat (domestic/foreign). <strong>Address Verification Letters / Apex MTC / Apex Checks / Disbursement Letters</strong> &rarr; #10 Confirms+Letters. <strong>Daily Confirms</strong> &rarr; #10 or 9x12 Flat Confirms. <strong>1099 / 1042 / tax forms</strong> &rarr; Tax Form Envelopes.</p>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Product Name","Total Used"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-
-html += '    </div>\n</div>\n\n'
-
-# ===== MONTHLY DETAIL (collapsed by default) =====
+# ===== MONTHLY DETAIL (interactive, collapsed by default) =====
 html += '<div class="section" id="monthly-detail">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
 html += '        <h2>Monthly detail</h2>\n'
 html += '        <span class="toggle">&#9654;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
+
+# Filter dropdown
+html += '        <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">\n'
+html += '            <label for="sku-filter" style="font-size:13px;font-weight:600;color:#052390;">Filter by envelope type:</label>\n'
+html += '            <select id="sku-filter" onchange="filterMonthlyDetail(this.value)" style="font-size:13px;padding:6px 12px;border:1px solid #E2E2E2;border-radius:8px;background:#FFFFFF;color:#333;min-width:300px;cursor:pointer;">\n'
+html += '            </select>\n'
+html += '        </div>\n'
+
+# Table shell (populated by JS)
+html += '        <div class="table-wrap"><table id="monthly-detail-table">\n'
+html += '            <thead><tr>'
+html += '<th>Month</th><th>Purchased</th><th>Used</th><th>Wastage</th><th>Adj. Variance</th><th>Variance %</th><th>Running Balance</th>'
+html += '</tr></thead>\n'
+html += '            <tbody id="monthly-detail-tbody"></tbody>\n'
 html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data).</p>\n'
+html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data). Wastage at contractual max (5% pre-2024, 2% post-2024).</p>\n'
 html += '    </div>\n</div>\n\n'
 
 # ===== REFERENCE (collapsed by default) =====
@@ -964,6 +1268,44 @@ html += '        <h2>Reference</h2>\n'
 html += '        <span class="toggle">&#9654;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
+
+# Contract Language
+html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 16px;">Contract terms &mdash; envelope materials</h3>\n'
+
+# Original contract
+html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Original Contract &mdash; Section 4, Compensation</p>\n'
+html += '            <p style="font-size:12px;color:#6D6E71;margin:0 0 8px;">GTO Print and Mail Services Schedule, effective January 1, 2019. Signed by William Capuzzi (CEO, Apex) and Joseph Lalli (VP, Broadridge).</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '                &ldquo;Materials (such as paper, envelopes, and inserts) and postage, presort and insert related fees are not included in the Annual Fee and will be charged separately. Materials are billed at cost plus wastage for generic stock. <strong>Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Amendment
+html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Amendment No. 1 &mdash; Section 4, Compensation (replaces original)</p>\n'
+html += '            <p style="font-size:12px;color:#6D6E71;margin:0 0 8px;">GTO Print and Mail Services Schedule Amendment No. 1, effective January 1, 2024. Signed by William Brennan (CAO, Apex) and Doug Deschutter (Co-President ICS, Broadridge). Term extended through December 31, 2028.</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '                &ldquo;Materials are billed at inventory cost plus 10% margin. Inventory cost means for (i) Client specific inventory: vendor price; and (ii) generic inventory: vendor price plus wastage as follows: <strong>10% for continuous form, 3% for cutsheet, and 2% for envelopes.</strong> For generic stock, the unit rate will be billed based on usage. For Client specific stock, the unit rate will be based on receipt of such stock.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Materials obligation
+html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 8px;">Original Contract &mdash; Section 8, Materials</p>\n'
+html += '            <blockquote style="margin:0;padding:12px 16px;background:#F5F5F7;border-left:3px solid #052390;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#333;">\n'
+html += '                &ldquo;Client will specify the materials (paper, inserts and envelope) (&ldquo;Materials&rdquo;) to be used; provided, however, that materials specified must conform to Broadridge print and insert equipment specifications. <strong>Broadridge shall be responsible for procuring and maintaining sufficient quantity of Materials, based on average volumes</strong>, except where Client is responsible for Materials as specified in Section 3.&rdquo;\n'
+html += '            </blockquote>\n'
+html += '        </div>\n'
+
+# Summary table
+html += '        <div class="table-wrap" style="margin-bottom:24px;"><table>\n'
+html += '            <thead><tr><th>Period</th><th>Envelope Wastage</th><th>Margin</th><th>Effective Rate</th><th>Billing Basis</th></tr></thead>\n'
+html += '            <tbody>\n'
+html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash;</td><td>5.0% over vendor</td><td>Usage</td></tr>\n'
+html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>\n'
+html += '            </tbody>\n'
+html += '        </table></div>\n'
 
 # Envelope Specifications
 html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 12px;">Envelope specifications</h3>\n'
@@ -986,8 +1328,139 @@ html += '</div><!-- end .content -->\n\n'
 # Footer
 html += '<div class="footer">\n    Confidential &mdash; Apex Clearing Corporation\n</div>\n'
 
-# JS
+# JS — base functions
 html += f'<script>\n{JS}\n</script>\n'
+
+# JS — monthly detail interactive filter
+html += '<script>\n'
+html += f'var monthlyData = {monthly_detail_json};\n'
+html += f'var skuNames = {sku_dropdown_json};\n'
+html += """
+(function() {
+    // Populate dropdown
+    var sel = document.getElementById('sku-filter');
+    var keys = Object.keys(monthlyData);
+    // Put ALL first, then sort rest by display name
+    var skuKeys = keys.filter(function(k) { return k !== 'ALL'; });
+    skuKeys.sort(function(a, b) {
+        return (skuNames[a] || a).localeCompare(skuNames[b] || b);
+    });
+    skuKeys.unshift('ALL');
+    skuKeys.forEach(function(key) {
+        var opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = skuNames[key] || key;
+        sel.appendChild(opt);
+    });
+    // Initial render
+    filterMonthlyDetail('ALL');
+})();
+
+function fmtNum(v) {
+    if (v === null || v === undefined) return '\u2014';
+    var n = Math.round(v);
+    if (n < 0) return '(' + Math.abs(n).toLocaleString() + ')';
+    return n.toLocaleString();
+}
+function fmtPct(v) {
+    if (v === null || v === undefined || v === 0) return '\u2014';
+    return (v * 100).toFixed(1) + '%';
+}
+function varColor(v) {
+    if (v > 0) return '#186741';
+    if (v < 0) return '#9D1526';
+    return '#6D6E71';
+}
+
+function filterMonthlyDetail(sku) {
+    var rows = monthlyData[sku];
+    if (!rows) return;
+    var tbody = document.getElementById('monthly-detail-tbody');
+    tbody.innerHTML = '';
+
+    var runBal = 0;
+    var prevYear = null;
+    var yrP = 0, yrU = 0, yrW = 0;
+
+    function getYear(m) {
+        return 2000 + parseInt(m.split('-')[1]);
+    }
+
+    function addSubtotal(year, yp, yu, yw, rb) {
+        var yv = yp - yu - yw;
+        var vpct = yp ? yv / yp : 0;
+        var vc = varColor(yv);
+        var rbc = varColor(rb);
+        var yrLabel = (year === 2022) ? '2022 (Mar\u2013Dec) Total' : year + ' Total';
+        var tr = document.createElement('tr');
+        tr.className = 'subtotal-row';
+        tr.innerHTML =
+            '<td><strong>' + yrLabel + '</strong></td>' +
+            '<td class="num"><strong>' + fmtNum(yp) + '</strong></td>' +
+            '<td class="num"><strong>' + fmtNum(yu) + '</strong></td>' +
+            '<td class="num" style="color:#6D6E71"><strong>' + fmtNum(yw) + '</strong></td>' +
+            '<td class="num" style="color:' + vc + ';font-weight:700"><strong>' + fmtNum(yv) + '</strong></td>' +
+            '<td class="num" style="color:' + vc + ';font-weight:700"><strong>' + fmtPct(vpct) + '</strong></td>' +
+            '<td class="num" style="color:' + rbc + ';font-weight:700"><strong>' + fmtNum(rb) + '</strong></td>';
+        tbody.appendChild(tr);
+    }
+
+    var totalP = 0, totalU = 0, totalW = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var curYear = getYear(r.m);
+
+        if (prevYear !== null && curYear !== prevYear) {
+            addSubtotal(prevYear, yrP, yrU, yrW, runBal);
+            yrP = 0; yrU = 0; yrW = 0;
+        }
+        prevYear = curYear;
+
+        var v = r.v;
+        runBal += v;
+        yrP += r.p; yrU += r.u; yrW += r.w;
+        totalP += r.p; totalU += r.u; totalW += r.w;
+
+        var vc = varColor(v);
+        var rbc = varColor(runBal);
+        var bg = (i % 2 === 1) ? '#F5F5F7' : '#FFFFFF';
+        var tr = document.createElement('tr');
+        tr.style.background = bg;
+        tr.innerHTML =
+            '<td>' + r.m + '</td>' +
+            '<td class="num">' + fmtNum(r.p) + '</td>' +
+            '<td class="num">' + fmtNum(r.u) + '</td>' +
+            '<td class="num" style="color:#6D6E71">' + fmtNum(r.w) + '</td>' +
+            '<td class="num" style="color:' + vc + ';font-weight:600">' + fmtNum(v) + '</td>' +
+            '<td class="num" style="color:' + vc + '">' + fmtPct(r.vp) + '</td>' +
+            '<td class="num" style="color:' + rbc + ';font-weight:600">' + fmtNum(runBal) + '</td>';
+        tbody.appendChild(tr);
+    }
+
+    // Final year subtotal
+    if (prevYear !== null) {
+        addSubtotal(prevYear, yrP, yrU, yrW, runBal);
+    }
+
+    // Grand total
+    var gv = totalP - totalU - totalW;
+    var gvc = varColor(gv);
+    var gpct = totalP ? gv / totalP : 0;
+    var tr = document.createElement('tr');
+    tr.className = 'total-row';
+    tr.innerHTML =
+        '<td><strong>Grand Total</strong></td>' +
+        '<td class="num"><strong>' + fmtNum(totalP) + '</strong></td>' +
+        '<td class="num"><strong>' + fmtNum(totalU) + '</strong></td>' +
+        '<td class="num" style="color:#6D6E71"><strong>' + fmtNum(totalW) + '</strong></td>' +
+        '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtNum(gv) + '</strong></td>' +
+        '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtPct(gpct) + '</strong></td>' +
+        '<td class="num" style="color:' + gvc + ';font-weight:700"><strong>' + fmtNum(runBal) + '</strong></td>';
+    tbody.appendChild(tr);
+}
+"""
+html += '</script>\n'
 html += '</body>\n</html>\n'
 
 with open(HTML_PATH, "w", encoding="utf-8") as f:
