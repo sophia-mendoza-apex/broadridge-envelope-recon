@@ -1241,7 +1241,45 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
 ```
 
+### 2026-02-24 (session 16 — part 4)
+
+**Accomplished:**
+- Added Denci and Koebel email quotes to the wastage observation section in the Broadridge report
+- Removed Envelope Specifications section entirely (WMS codes, sizes, mail types, abbreviation legend, `ENVELOPE_SPECS` data, `build_envelope_spec_rows()` function)
+- Sent the Broadridge report to user's Outlook inbox for review before sharing externally
+- Report regenerated (49.1KB → 47.6KB)
+
+**Email quotes added (wastage section):**
+- Christopher Denci (Aug 23, 2023): "The current agreement reflects Inventory Cost Plus 10% margin... Specifically, the wastage charge is 10% for any generic paper stock and 5% for generic envelope stock."
+- Brandon Koebel (Nov 7, 2022): "Wastage is roughly 10%... This includes envelopes that are damaged, need to be reprinted and reinserted, etc."
+- Brandon Koebel (Sep 29, 2022): "Did not account for any waste or spoilage (typically 10-15%)."
+
+**Broadridge report structure (final):**
+1. Summary (4 KPIs + year-by-year with wastage & invoiced + wastage observation + Denci/Koebel email quotes + pre-settlement context)
+2. Monthly Detail (7 columns: Month, Purchased, Used, Wastage, Adj. Variance, Var%, Running Balance)
+3. Purchases & Usage by Envelope Type (grouped table + NI/PFC transition context + SKU breakdown)
+4. Reference (data sources & methodology + contract terms Section 4 & 8 + contract summary table)
+
+**Commits this session (all):**
+- `5ec487f` — feat: Add billing basis discrepancy analysis — receipt vs. usage
+- `857d3ab` — docs: Update CLAUDE.md with session 16
+- `d03fc54` — feat: Align Broadridge report with internal — full scope reconciliation
+- `4fb0be5` — docs: Update CLAUDE.md and regenerated Broadridge HTML with session 16 continued
+- `7451ee3` — fix: Remove client filter and monthly trend from Broadridge report
+- `25633cb` — docs: Update CLAUDE.md with session 16 part 2
+- `f3ffe60` — fix: Remove sensitive items from Broadridge report before sharing
+- `ae44593` — docs: Update CLAUDE.md with session 16 part 3
+- `8ec6d05` — fix: Add wastage email quotes and remove envelope specs from Broadridge report
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
 **Next Steps:**
+- [ ] Review Broadridge report in Outlook inbox; decide if ready to send
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
