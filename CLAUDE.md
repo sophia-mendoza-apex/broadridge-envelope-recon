@@ -1466,3 +1466,36 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory, wastage discrepancy, billing basis
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 18 continued)
+
+**Accomplished:**
+- Added 39% usage decline quantification to excess inventory section (462,992/mo in 2022 → 284,200/mo in 2025)
+- Added "Used" definition to Data Sources table (warehouse-to-floor pull including waste and floor surplus, per Koebel Oct 2022)
+- Regenerated Broadridge report (30.5 KB)
+- Comprehensive 18-session audit confirmed all findings captured — user approved adding 2 of 3 identified gaps (dollar impact intentionally excluded)
+
+**Changes to Broadridge report:**
+- Excess inventory box now states: "Average monthly usage has declined **39%** since 2022 (from 462,992/month to 284,200/month in 2025)"
+- Closing ask updated: "...adjusted to reflect the 39% decline in average monthly usage"
+- Data Sources table new row: `"Used" definition` — "Envelopes pulled from warehouse inventory to the production floor, including waste and floor surplus — not limited to envelopes actually mailed (per Brandon Koebel, Oct 2022)"
+
+**Commits this session:**
+- `20a0898` — feat: Convert Broadridge report to print-ready light theme with buffer analysis
+- `933e47e` — docs: Update CLAUDE.md with session 18
+- `576656a` — fix: Correct variance color, total buffer calculation, and stale comment
+- `b979f5c` — feat: Add usage decline quantification and "Used" definition to Broadridge report
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Review Broadridge report in browser/PDF; decide if ready to send
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory, wastage discrepancy, billing basis
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
