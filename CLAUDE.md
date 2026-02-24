@@ -1406,3 +1406,63 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] Draft formal letter to Broadridge addressing: (1) excess inventory, (2) wastage discrepancy, (3) billing basis violation, (4) request retroactive credit for $192K excess
 - [ ] Request actual Jun-20 purchase report from Broadridge
 - [ ] Send Broadridge report to Broadridge contacts for data validation
+
+### 2026-02-24 (session 18)
+
+**Accomplished:**
+- Converted Broadridge report from dark interactive theme to print-ready light theme for PDF output
+- Replaced Var % column with Buffer (Mo.) across all tables — trailing 12-month average for seasonal accuracy
+- Added "Items for review" confirmation questions for Broadridge
+- Added excess inventory observation with buffer months analysis
+- Renamed Wastage → Wastage (Est.) with footnote clarifying contractual max calculation
+- Reviewed contract audit provisions (MSA Section 23.S, Amendment Section 4) confirming Apex's right to request unit rate breakdowns
+
+**Print theme changes:**
+- Body: white background, dark text (#333)
+- Cards/boxes: light gray (#F5F5F7) with subtle borders
+- Headings: Apex navy (#052390)
+- Blockquotes: white with navy left border
+- Removed: nav bar, collapsible toggles, sort arrows, hover effects, all JavaScript
+- Added: `page-break-inside: avoid` on sections, `@media print` tighter padding
+- Report size: 33.3 KB → 30.0 KB
+
+**Buffer (Mo.) column (replaces Var %):**
+- Formula: Adj. Variance / trailing 12-month avg monthly usage per SKU
+- Year rows use that year's own month count and usage
+- Type/SKU rows use each type's trailing 12-month usage / 12
+- Total rows use overall trailing 12-month average
+- Color coding: green (0-3 mo, within policy), amber (>3 mo, exceeds policy), red (deficit)
+- Trailing 12 months chosen over 6 months to capture full seasonal cycle (all 4 quarter-ends + year-end)
+
+**Confirmation items for Broadridge (4 total):**
+1. Data validation — confirm purchased/used totals align with their records
+2. Wastage rate applied — clarify contractual (5%/2%) vs operational (10-15%) in invoicing
+3. Unit rate breakdown — provide sample month vendor price, wastage component, margin
+4. Inventory position — current levels and whether ordering adjusted for declining usage
+
+**Contract audit rights confirmed (from MSA review):**
+- MSA Section 23.S: Apex can inspect books/records to verify "Service volumes and fees," including "fees charged to Client"
+- MSA Section 23.S: Broadridge must provide Apex's auditors "any reasonable additional information and assistance"
+- Amendment Section 4: Broadridge must provide "monthly invoices detailing fees and the passthrough-costs"
+- MSA Section 4.D: invoices payable "subject to a bona fide dispute"
+- Schedule Section 6(g): non-waiver clause — Apex hasn't lost rights by not previously auditing
+
+**Broadridge report structure (current):**
+1. Summary (intro + 4 KPIs + footnotes + year-by-year with Buffer Mo. + Invoiced)
+2. Items for review (wastage observation + excess inventory observation + 4 confirmation items)
+3. Purchases & usage by envelope type (4 groups + 9x12 footnote + NI/PFC context + SKU breakdown)
+4. Reference (data sources + 3 contract quotes + contract summary table + Koebel quotes + pre-settlement context + generic stock classification)
+
+**How to refresh outputs:**
+```bash
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\build_recon_from_source.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Review Broadridge report in browser/PDF; decide if ready to send
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory, wastage discrepancy, billing basis
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation
