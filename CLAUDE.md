@@ -595,14 +595,14 @@ The user questioned why the running balance shows negative inventory for 10 mont
 |------|-----------|------|----------|------|-------------|
 | 2022 (Mar-Dec) | 5,807,000 | 4,629,923 | +1,177,077 | +20.3% | 462,992 |
 | 2023 | 6,571,000 | 6,081,272 | +489,728 | +7.5% | 506,773 |
-| 2024 | 4,621,000 | 4,688,341 | (67,341) | -1.5% | 390,695 |
-| 2025 | 4,040,500 | 3,912,009 | +128,491 | +3.2% | 326,001 |
-| **Total** | **21,039,500** | **19,311,545** | **+1,727,955** | **+8.2%** | |
+| 2024 | 4,621,000 | 4,348,349 | +272,651 | +5.9% | 362,362 |
+| 2025 | 4,040,500 | 3,410,405 | +630,095 | +15.6% | 284,200 |
+| **Total** | **21,039,500** | **18,469,949** | **+2,569,551** | **+12.2%** | |
 
 **Key findings:**
-- Implied inventory of 1,727,955 envelopes = **5.3 months buffer stock** at current usage (Broadridge policy: 2-3 months)
-- Average monthly usage declined **30%** from 462,992/mo (2022) to 326,001/mo (2025) — consistent with 30% print reduction target in term sheet
-- 2024 was nearly perfectly balanced at -1.5% variance
+- Implied inventory of 2,569,551 envelopes = **8.7 months buffer stock** at trailing 6-mo usage of 294,965/mo (Broadridge policy: 2-3 months)
+- Average monthly usage declined **39%** from 462,992/mo (2022) to 284,200/mo (2025) — consistent with 30% print reduction target in term sheet
+- All 4 years show surplus (smallest: 2024 at +5.9%)
 - Running balance never goes negative after a brief dip in Apr 2022 (-64K)
 
 **Report structure (current):**
@@ -617,7 +617,7 @@ The user questioned why the running balance shows negative inventory for 10 mont
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
 - [ ] Consider drafting formal letter to Broadridge re: contract variance and inventory management concerns
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
-- [ ] Investigate why implied inventory (5.3 months) exceeds Broadridge's stated 2-3 month buffer policy
+- [x] ~~Investigate why implied inventory exceeds Broadridge's stated 2-3 month buffer policy~~ — Now 8.7 months; see excess inventory next step
 
 ### 2026-02-23 (session 10)
 
@@ -655,7 +655,7 @@ The user questioned why the running balance shows negative inventory for 10 mont
 - 2022 subtotal labeled "2022 (Mar–Dec)" for clarity
 
 **Spoilage confirmed:**
-- Post-settlement spoils: 55,733 of 19,311,545 used = 0.29%
+- Post-settlement spoils: 55,733 of 18,469,949 used = 0.30%
 - Well within 10% contractual wastage limit
 - Added to Used KPI card sub-text and key findings bullet
 - Note: actual wastage (10-15% per Brandon Koebel) is embedded in "Used" figure, not separately reported as spoils
@@ -696,7 +696,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Clarify markup structure discrepancy between 2020-2024 (no visible markup) and 2025 (31.8% vs expected 12%)
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (8.7 months buffer vs 2-3 month policy)
 - [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%) suggests missing purchase records or misclassified usage
 - [ ] Verify May-25 752K usage spike — possible billing consolidation from multiple periods
 - [ ] Request actual Jun-20 purchase report from Broadridge (currently using consolidated file as fill-in)
@@ -770,7 +770,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [x] ~~Clarify markup structure: pre-2024 = cost + 5% wastage + 10% margin vs 2025 showing 31.8%~~ — Resolved in session 13
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (8.7 months buffer vs 2-3 month policy)
 - [ ] Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)
 - [ ] Verify May-25 752K usage spike
 - [ ] Request actual Jun-20 purchase report from Broadridge
@@ -827,7 +827,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
 
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (8.7 months buffer vs 2-3 month policy)
 - [x] ~~Investigate ENVCONRIDGE9X12DW deficit — 80K purchased vs 199K used (-148%)~~ — Resolved in session 13 (continued)
 - [ ] Verify May-25 752K usage spike
 - [ ] Request actual Jun-20 purchase report from Broadridge
@@ -881,7 +881,7 @@ Outside those 4 months, FLAT confirms average ~350/month.
 
 **Next Steps:**
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory (5.9 months buffer vs 2-3 month policy)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory (8.7 months buffer vs 2-3 month policy)
 - [x] ~~Verify May-25 752K usage spike~~ — Resolved in session 13 (triple-counted billing data)
 - [ ] Request actual Jun-20 purchase report from Broadridge
 
@@ -929,3 +929,53 @@ Outside those 4 months, FLAT confirms average ~350/month.
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
 - [ ] Consider drafting formal letter to Broadridge re: excess inventory
 - [ ] Request actual Jun-20 purchase report from Broadridge
+
+### 2026-02-23 (session 14)
+
+**Accomplished:**
+- Fixed stale May-25 footnote in `generate_html_report.py` (line 951) — removed reference to "752K" triple-counted number
+- Created `generate_broadridge_report.py` — new script that generates a clean, neutral, data-focused HTML report for sharing with Broadridge
+- Output file: `Broadridge Envelope Reconciliation - For Review.html` (51.6 KB)
+
+**Bug Fix 22 — Stale May-25 footnote:**
+- Internal report still referenced "May-25 usage of 752K is 2.3x the trailing average" — the old triple-counted number from before Bug Fix 20
+- Removed the stale investigation language; footnote now reads: "May & Jun 2025: Zero purchases confirmed (not missing data)."
+
+**Broadridge-facing report structure:**
+1. Summary (4 KPI cards: Purchased, Used, Variance, Months Covered + year-by-year table)
+2. Monthly Trend (SVG bar chart — purchased vs used, post-settlement)
+3. Monthly Detail (expanded by default — 46 months + 4 annual subtotals + grand total, with running balance)
+4. Purchases & Usage by Envelope Type (grouped table + SKU-level breakdown)
+5. Envelope Specifications (collapsed — WMS codes, sizes, mail types, abbreviation legend)
+
+**Content excluded from Broadridge report (internal-only):**
+- Bottom line assessment and recommendations
+- Inventory gauge (buffer stock vs policy comparison)
+- Rolling 6-month usage trend sparkline
+- Key findings bullets
+- Pre-settlement context line and $643K settlement reference
+- Usage by product table
+- Scope notes and investigation footnotes
+- Avg Monthly Usage KPI and column
+- Spoilage statistics
+
+**New files:**
+| File | Description |
+|------|-------------|
+| `generate_broadridge_report.py` | Reads `Envelope Reconciliation - Source Data.xlsx`, generates external-facing HTML |
+| `Broadridge Envelope Reconciliation - For Review.html` | Self-contained HTML report for Broadridge review |
+
+**How to refresh outputs:**
+```bash
+# Internal report
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_html_report.py"
+
+# Broadridge-facing report
+py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_report.py"
+```
+
+**Next Steps:**
+- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition (wastage embedded or separate)
+- [ ] Consider drafting formal letter to Broadridge re: excess inventory
+- [ ] Request actual Jun-20 purchase report from Broadridge
+- [ ] Send Broadridge report to Broadridge contacts for data validation

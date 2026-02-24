@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Broadridge Envelope Reconciliation - HTML Report Generator
-Reads source data from Excel and generates a self-contained HTML report.
+Broadridge Envelope Reconciliation - External Report Generator
+Reads source data from Excel and generates a clean, data-focused HTML report
+suitable for sharing with Broadridge for reconciliation review.
 """
 
 import os
@@ -9,15 +10,17 @@ import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation - Source Data.xlsx")
-HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
+HTML_PATH = os.path.join(BASE_DIR, "Broadridge Envelope Reconciliation - For Review.html")
 
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
 by_type = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
-usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
 usage_by_env_type = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
 
 print("Data loaded successfully.")
 
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
 DASH = "\u2014"
 
 def fmt_num(v):
@@ -69,17 +72,9 @@ def safe(v, default=0):
     except (ValueError, TypeError):
         return default
 
-total_purchased = int(monthly["Envelopes Purchased"].sum())
-total_used = int(monthly["Envelopes Used (Volume)"].sum())
-total_mailed = int(monthly["Envelopes Mailed (Postage)"].sum())
-total_spoils = int(monthly["Spoils"].sum())
-net_variance = total_purchased - total_used
-
-usage_by_product_sorted = usage_by_product.sort_values("Total Envelopes Used", ascending=False)
-usage_product_total = usage_by_product["Total Envelopes Used"].sum()
-
-# Post-settlement analysis (Mar 2022 onward — when Apex started paying for envelopes)
-SETTLEMENT_DATE = "Mar-22"
+# ---------------------------------------------------------------------------
+# Data — post-settlement scope (Mar 2022 onward)
+# ---------------------------------------------------------------------------
 month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
 def month_label_to_sortkey(label):
@@ -88,38 +83,31 @@ def month_label_to_sortkey(label):
     yi = int(parts[1])
     return (yi, mi)
 
+SETTLEMENT_DATE = "Mar-22"
 settlement_key = month_label_to_sortkey(SETTLEMENT_DATE)
 post_mask = monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
 post = monthly[post_mask]
 
 post_purchased = int(post["Envelopes Purchased"].sum())
 post_used = int(post["Envelopes Used (Volume)"].sum())
-post_mailed = int(post["Envelopes Mailed (Postage)"].sum())
-post_spoils = int(post["Spoils"].sum())
 post_variance = post_purchased - post_used
 post_months = len(post)
-spoilage_rate = post_spoils / post_used * 100 if post_used else 0
 
 # Year-by-year post-settlement
 from collections import defaultdict as _defaultdict
-post_yearly = _defaultdict(lambda: [0, 0, 0, 0, 0])  # purchased, used, mailed, spoils, month_count
+post_yearly = _defaultdict(lambda: [0, 0, 0])  # purchased, used, month_count
 for _, r in post.iterrows():
     yr = 2000 + int(r["Month"].split('-')[1])
     post_yearly[yr][0] += safe(r["Envelopes Purchased"])
     post_yearly[yr][1] += safe(r["Envelopes Used (Volume)"])
-    post_yearly[yr][2] += safe(r["Envelopes Mailed (Postage)"])
-    post_yearly[yr][3] += safe(r["Spoils"])
-    post_yearly[yr][4] += 1
+    post_yearly[yr][2] += 1
 
-# Rolling avg monthly usage (last 6 months) for buffer stock calculation
-recent_6 = monthly.tail(6)
-avg_monthly_usage = int(recent_6["Envelopes Used (Volume)"].mean())
-
+# Envelope type lookups
 by_type_sorted = by_type.sort_values("Total Purchased", ascending=False)
 env_type_total = by_type["Total Purchased"].sum()
+purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))
+usage_by_type_dict = dict(zip(usage_by_env_type["Envelope Type"], usage_by_env_type["Total Envelopes Used"]))
 
-# Build combined envelope group table — groups related purchase SKUs and usage types
-# by physical envelope shape/size (not postage imprint) for meaningful comparison.
 ENVELOPE_GROUPS = [
     {
         "label": "N14 Fold Statements",
@@ -148,22 +136,9 @@ ENVELOPE_GROUPS = [
     },
 ]
 
-# Build lookup dicts
-purchase_by_type = dict(zip(by_type["Envelope Type"], by_type["Total Purchased"]))
-usage_by_type_dict = dict(zip(usage_by_env_type["Envelope Type"], usage_by_env_type["Total Envelopes Used"]))
-
-# Check for missing months (shown as alert banner if any gaps exist)
-def find_missing_months():
-    expected = []
-    for y in range(2020, 2026):
-        for m in range(1, 13):
-            label = f'{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]}-{y % 100:02d}'
-            expected.append(label)
-    present = set(monthly["Month"].tolist())
-    return [label for label in expected if label not in present]
-
-missing_months = find_missing_months()
-
+# ---------------------------------------------------------------------------
+# SVG bar chart (purchased vs used, post-settlement)
+# ---------------------------------------------------------------------------
 def build_svg_chart():
     months = post["Month"].tolist()
     purchased = post["Envelopes Purchased"].tolist()
@@ -209,8 +184,10 @@ def build_svg_chart():
     L.append("</svg>")
     return "\n".join(L)
 
+# ---------------------------------------------------------------------------
+# Monthly detail rows (post-settlement) with annual subtotals and grand total
+# ---------------------------------------------------------------------------
 def build_monthly_rows():
-    """Build monthly rows (post-settlement scope) with annual subtotals and grand total."""
     rows = []
     running_balance = 0
     yr_p = yr_u = 0
@@ -285,21 +262,9 @@ def build_monthly_rows():
     )
     return "\n".join(rows)
 
-def build_env_type_rows():
-    rows = []
-    for _, r in by_type_sorted.iterrows():
-        tp = safe(r["Total Purchased"])
-        pct = (tp / env_type_total * 100) if env_type_total else 0
-        bw = max(pct, 0.5)
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{r["Envelope Type"]}</td>'
-            + f'<td class="num">{fmt_num(tp)}</td>'
-            + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
+# ---------------------------------------------------------------------------
+# Combined envelope group rows (purchased + used + variance)
+# ---------------------------------------------------------------------------
 def build_combined_env_rows():
     rows = []
     grand_p = grand_u = 0
@@ -320,7 +285,6 @@ def build_combined_env_rows():
             + f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
             + '</tr>'
         )
-    # Grand total
     gv = grand_p - grand_u
     gvc = var_color(gv)
     gpct = gv / grand_p if grand_p else 0
@@ -335,23 +299,10 @@ def build_combined_env_rows():
     )
     return "\n".join(rows)
 
-def build_usage_by_product_rows():
-    rows = []
-    for _, r in usage_by_product_sorted.iterrows():
-        used = safe(r["Total Envelopes Used"])
-        pct = (used / usage_product_total * 100) if usage_product_total else 0
-        bw = max(pct, 0.5)
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name">{r["Product Name"]}</td>'
-            + f'<td class="num">{fmt_num(used)}</td>'
-            + f'<td><div class="bar-container"><div class="bar-fill" style="width:{bw:.1f}%"></div><span class="bar-label">{pct:.1f}%</span></div></td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
+# ---------------------------------------------------------------------------
+# SKU-level recon rows
+# ---------------------------------------------------------------------------
 def build_sku_recon_rows():
-    """SKU-level recon: purchased, used, variance, variance %."""
     all_types = sorted(
         set(list(purchase_by_type.keys()) + list(usage_by_type_dict.keys())),
         key=lambda t: -(safe(purchase_by_type.get(t, 0)) + safe(usage_by_type_dict.get(t, 0)))
@@ -391,135 +342,49 @@ def build_sku_recon_rows():
     )
     return "\n".join(rows)
 
-def build_inventory_gauge():
-    """SVG gauge comparing actual inventory vs Broadridge 2-3 month policy."""
-    policy_min = avg_monthly_usage * 2
-    policy_max = avg_monthly_usage * 3
-    actual = post_variance
-    max_val = max(actual, policy_max) * 1.3
-    excess = max(0, actual - policy_max)
+# ---------------------------------------------------------------------------
+# Envelope Specifications
+# ---------------------------------------------------------------------------
+ENVELOPE_SPECS = [
+    ("ENVMEAPEXN14PFC", "926131", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Domestic Fold Statement", "Pre-Sorted First-Class", "24WW", "All domestic monthly/quarterly account statements that fold into the envelope"),
+    ("ENVMEAPEX9X12PFC", "830851", "9 x 12", "Flat", "Domestic Flat Statement", "Pre-Sorted First-Class", "24WW", "Domestic statements too large to fold (high page count)"),
+    ("ENVMERIDGEN14NI11/08", "942095", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Foreign Fold Statement", "No Imprint", "24WW", "Foreign statements &mdash; postage applied at mailing"),
+    ("ENVMERIDGE9X12NI11/08", "823804", "9 x 12", "Flat", "Foreign Flat Statement", "No Imprint", "24WW", "Foreign flat statements &mdash; postage applied at mailing"),
+    ("ENVAPXN10PFSCONN10IND(10/22)", "992124", '4&frac18; x 9&frac12;', "#10 Booklet", "Domestic Confirms + Letters", "Pre-Sorted First-Class", "24WW", "Replaced ENVCONPFSN10NI in Oct 2022 &mdash; updated postal permit"),
+    ("ENVCONPFSN10NI", "856743", '4&frac18; x 9&frac12;', "#10 Booklet", "Foreign Confirms + Letters", "No Imprint", "24WW", "Foreign confirms and letters &mdash; postage applied at mailing"),
+    ("ENVCONRIDGE9X12DW", "818105", "9 x 12", "Flat", "Flat Confirms (Dom. + Foreign)", "No Imprint", "24WW", "Oversize confirms that cannot fold into #10 envelope"),
+]
 
-    w, h = 700, 94
-    ml, mr = 50, 50
-    bar_w = w - ml - mr
-    bar_y, bar_h = 36, 22
-
-    def xp(val):
-        return ml + (val / max_val) * bar_w
-
-    s = []
-    s.append(f'<svg viewBox="0 0 {w} {h}" style="width:100%;max-width:{w}px;height:auto;" xmlns="http://www.w3.org/2000/svg">')
-    # Track
-    s.append(f'<rect x="{ml}" y="{bar_y}" width="{bar_w}" height="{bar_h}" fill="#F0F0F0" rx="4"/>')
-    # Under-target zone (0 to policy_min) — amber
-    s.append(f'<rect x="{ml}" y="{bar_y}" width="{xp(policy_min)-ml:.1f}" height="{bar_h}" fill="#FFF3E0" rx="4"/>')
-    # Policy zone (min to max) — green
-    s.append(f'<rect x="{xp(policy_min):.1f}" y="{bar_y}" width="{xp(policy_max)-xp(policy_min):.1f}" height="{bar_h}" fill="#C8E6C9"/>')
-    # Over-target zone (max to end) — light red
-    s.append(f'<rect x="{xp(policy_max):.1f}" y="{bar_y}" width="{xp(max_val)-xp(policy_max):.1f}" height="{bar_h}" fill="#FFCDD2" rx="4"/>')
-    # Policy range borders
-    s.append(f'<line x1="{xp(policy_min):.1f}" y1="{bar_y}" x2="{xp(policy_min):.1f}" y2="{bar_y+bar_h}" stroke="#186741" stroke-width="1.5"/>')
-    s.append(f'<line x1="{xp(policy_max):.1f}" y1="{bar_y}" x2="{xp(policy_max):.1f}" y2="{bar_y+bar_h}" stroke="#186741" stroke-width="1.5"/>')
-    # Actual marker
-    ax = xp(actual)
-    s.append(f'<line x1="{ax:.1f}" y1="{bar_y-6}" x2="{ax:.1f}" y2="{bar_y+bar_h+6}" stroke="#052390" stroke-width="3"/>')
-    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="8" fill="#052390"/>')
-    s.append(f'<circle cx="{ax:.1f}" cy="{bar_y+bar_h/2:.1f}" r="4" fill="#FFFFFF"/>')
-    # Labels — above bar
-    s.append(f'<text x="{ax:.1f}" y="{bar_y-12}" text-anchor="middle" font-size="13" fill="#052390" font-weight="700" font-family="Helvetica Neue,Arial,sans-serif">Actual: {fmt_num(actual)}</text>')
-    # Labels — below bar
-    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_min)}</text>')
-    s.append(f'<text x="{xp(policy_min):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">2-mo min</text>')
-    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+16}" text-anchor="middle" font-size="11" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">{fmt_num(policy_max)}</text>')
-    s.append(f'<text x="{xp(policy_max):.1f}" y="{bar_y+bar_h+28}" text-anchor="middle" font-size="10" fill="#186741" font-family="Helvetica Neue,Arial,sans-serif">3-mo max</text>')
-    s.append('</svg>')
-    return '\n'.join(s)
-
-def build_monthly_usage_trend():
-    """SVG sparkline showing rolling 6-month avg usage over time."""
-    n = len(post)
-    if n < 6:
-        return ""
-    # Compute 6-month rolling average
-    usage_vals = post["Envelopes Used (Volume)"].tolist()
-    labels = post["Month"].tolist()
-    rolling = []
-    for i in range(5, n):
-        avg = sum(usage_vals[i-5:i+1]) / 6
-        rolling.append((labels[i], avg))
-
-    cw, ch = 700, 160
-    ml, mr, mt, mb = 60, 30, 30, 50
-    pw = cw - ml - mr
-    ph = ch - mt - mb
-    nr = len(rolling)
-    max_val = max(v for _, v in rolling) * 1.15
-    min_val = min(v for _, v in rolling) * 0.85
-
-    L = [f'<svg viewBox="0 0 {cw} {ch}" style="width:100%;max-width:{cw}px;height:auto;" xmlns="http://www.w3.org/2000/svg">']
-    L.append(f'<rect width="{cw}" height="{ch}" fill="#FFFFFF" rx="8"/>')
-
-    # Y-axis gridlines
-    for i in range(5):
-        yv = min_val + (max_val - min_val) * i / 4
-        yp = mt + ph - (ph * i / 4)
-        L.append(f'<line x1="{ml}" y1="{yp:.1f}" x2="{cw-mr}" y2="{yp:.1f}" stroke="#F0F0F0" stroke-width="1"/>')
-        lb = f"{yv/1000:.0f}K"
-        L.append(f'<text x="{ml-6}" y="{yp+4:.1f}" text-anchor="end" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif">{lb}</text>')
-
-    # Line path
-    pts = []
-    for i, (lbl, val) in enumerate(rolling):
-        x = ml + (i / (nr - 1)) * pw
-        y = mt + ph - ((val - min_val) / (max_val - min_val)) * ph
-        pts.append(f"{x:.1f},{y:.1f}")
-    L.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="#3F8EFC" stroke-width="2.5" stroke-linejoin="round"/>')
-
-    # Start/end dots + labels
-    sx, sy = pts[0].split(',')
-    ex, ey = pts[-1].split(',')
-    L.append(f'<circle cx="{sx}" cy="{sy}" r="4" fill="#3F8EFC"/>')
-    L.append(f'<circle cx="{ex}" cy="{ey}" r="5" fill="#052390"/>')
-    L.append(f'<text x="{sx}" y="{float(sy)-10}" text-anchor="start" font-size="11" fill="#3F8EFC" font-weight="600" font-family="Helvetica Neue,Arial,sans-serif">{rolling[0][1]/1000:.0f}K</text>')
-    L.append(f'<text x="{ex}" y="{float(ey)-10}" text-anchor="end" font-size="11" fill="#052390" font-weight="600" font-family="Helvetica Neue,Arial,sans-serif">{rolling[-1][1]/1000:.0f}K</text>')
-
-    # X-axis labels (every 12th)
-    for i, (lbl, val) in enumerate(rolling):
-        if i % 12 == 0 or i == nr - 1:
-            x = ml + (i / (nr - 1)) * pw
-            ly = mt + ph + 16
-            L.append(f'<text x="{x:.1f}" y="{ly}" text-anchor="middle" fill="#6D6E71" font-size="10" font-family="Helvetica Neue,Arial,sans-serif">{lbl}</text>')
-
-    L.append('</svg>')
-    return '\n'.join(L)
-
-svg_chart = build_svg_chart()
-monthly_rows = build_monthly_rows()
-env_type_rows = build_env_type_rows()
-combined_env_rows = build_combined_env_rows()
-usage_product_rows = build_usage_by_product_rows()
-sku_recon_rows = build_sku_recon_rows()
-inventory_gauge = build_inventory_gauge()
-usage_trend_svg = build_monthly_usage_trend()
-
-kpi_var_color = "#9D1526" if net_variance < 0 else "#186741"
-
-# --- Post-settlement derived values for Executive Summary ---
-post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
-buffer_months = post_variance / avg_monthly_usage if avg_monthly_usage else 0
-
-usage_2022 = post_yearly[2022][1] / post_yearly[2022][4] if post_yearly[2022][4] else 0
-usage_2025 = post_yearly[2025][1] / post_yearly[2025][4] if post_yearly[2025][4] else 0
-usage_decline = (1 - usage_2025 / usage_2022) * 100 if usage_2022 else 0
-
-# Recent 2 years variance for trajectory assessment
-recent_yrs = sorted(post_yearly.keys())[-2:]
-recent_p = sum(post_yearly[y][0] for y in recent_yrs)
-recent_u = sum(post_yearly[y][1] for y in recent_yrs)
-recent_var_pct = (recent_p - recent_u) / recent_p * 100 if recent_p else 0
+def build_envelope_spec_rows():
+    rows = []
+    for wms, order, size, style, mail_type, postage, paper, notes in ENVELOPE_SPECS:
+        postage_cls = "flag-under" if "Pre-Sorted" in postage else "flag-ok"
+        rows.append(
+            '<tr>'
+            + f'<td class="env-name" style="font-weight:600;font-size:12px;font-family:monospace">{wms}</td>'
+            + f'<td>{mail_type}</td>'
+            + f'<td>{size}</td>'
+            + f'<td>{style}</td>'
+            + f'<td><span class="{postage_cls}">{postage}</span></td>'
+            + f'<td style="font-size:12px;white-space:normal;max-width:240px">{notes}</td>'
+            + '</tr>'
+        )
+    return "\n".join(rows)
 
 # ---------------------------------------------------------------------------
-# CSS
+# Build all data components
+# ---------------------------------------------------------------------------
+svg_chart = build_svg_chart()
+monthly_rows = build_monthly_rows()
+combined_env_rows = build_combined_env_rows()
+sku_recon_rows = build_sku_recon_rows()
+envelope_spec_rows = build_envelope_spec_rows()
+
+post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
+post_var_pct = post_variance / post_purchased if post_purchased else 0
+
+# ---------------------------------------------------------------------------
+# CSS (same Apex brand design system as internal report)
 # ---------------------------------------------------------------------------
 CSS = """*, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -534,6 +399,7 @@ body {
 }
 .header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
 .header .subtitle { font-size: 16px; opacity: 0.85; margin: 0 0 4px; }
+.header .from-line { font-size: 14px; opacity: 0.75; margin: 0 0 4px; }
 .header .generated { font-size: 13px; opacity: 0.65; margin: 0; }
 .nav {
     position: sticky; top: 0; z-index: 100;
@@ -573,34 +439,6 @@ body {
 }
 .kpi-card .kpi-value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
 .kpi-card .kpi-sub { font-size: 12px; color: #6D6E71; margin: 6px 0 0; }
-.bottom-line {
-    background: #FFFFFF; border-radius: 12px; padding: 24px 28px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
-    border-left: 5px solid #052390; margin-bottom: 24px;
-}
-.bottom-line .bl-heading {
-    font-size: 13px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #052390; margin: 0 0 8px;
-}
-.bottom-line p { margin: 0; font-size: 14px; line-height: 1.7; color: #333; }
-.bottom-line strong { color: #052390; }
-.alert-box {
-    background: rgba(252, 94, 23, 0.06); border-left: 4px solid #FC5E17;
-    border-radius: 0 8px 8px 0; padding: 16px 24px; margin-bottom: 20px;
-}
-.alert-box p { margin: 0; font-size: 13px; color: #333; }
-.alert-box strong { color: #FC5E17; }
-.info-box {
-    background: rgba(41, 84, 240, 0.05); border-left: 4px solid #2954F0;
-    border-radius: 0 8px 8px 0; padding: 16px 24px; margin-top: 20px;
-}
-.info-box p { margin: 0; font-size: 13px; color: #333; line-height: 1.6; }
-.info-box strong { color: #052390; }
-.context-line {
-    font-size: 13px; color: #6D6E71; margin: 20px 0 0;
-    padding: 12px 16px; background: #F5F5F7; border-radius: 8px; line-height: 1.6;
-}
-.context-line strong { color: #333; }
 .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; background: #FFFFFF; }
 table th {
@@ -699,7 +537,6 @@ document.querySelectorAll('.nav a').forEach(function(link) {
         var el = document.getElementById(id);
         if (el) {
             e.preventDefault();
-            // Expand the section if collapsed
             var body = el.querySelector('.section-body');
             if (body && body.classList.contains('collapsed')) {
                 var header = el.querySelector('.section-header');
@@ -722,171 +559,78 @@ def th_row(headers):
     return "".join(f'<th onclick="sortTable(this,{i})">{h} {SA}</th>' for i, h in enumerate(headers))
 
 # ---------------------------------------------------------------------------
-# Envelope Specifications (data, used in Reference section)
-# ---------------------------------------------------------------------------
-ENVELOPE_SPECS = [
-    ("ENVMEAPEXN14PFC", "926131", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Domestic Fold Statement", "Pre-Sorted First-Class", "24WW", "All domestic monthly/quarterly account statements that fold into the envelope"),
-    ("ENVMEAPEX9X12PFC", "830851", "9 x 12", "Flat", "Domestic Flat Statement", "Pre-Sorted First-Class", "24WW", "Domestic statements too large to fold (high page count)"),
-    ("ENVMERIDGEN14NI11/08", "942095", '4&frac34; x 11<sup>7</sup>&frasl;<sub>16</sub>', "N14 Booklet", "Foreign Fold Statement", "No Imprint", "24WW", "Foreign statements &mdash; postage applied at mailing"),
-    ("ENVMERIDGE9X12NI11/08", "823804", "9 x 12", "Flat", "Foreign Flat Statement", "No Imprint", "24WW", "Foreign flat statements &mdash; postage applied at mailing"),
-    ("ENVAPXN10PFSCONN10IND(10/22)", "992124", '4&frac18; x 9&frac12;', "#10 Booklet", "Domestic Confirms + Letters", "Pre-Sorted First-Class", "24WW", "Replaced ENVCONPFSN10NI in Oct 2022 &mdash; updated postal permit"),
-    ("ENVCONPFSN10NI", "856743", '4&frac18; x 9&frac12;', "#10 Booklet", "Foreign Confirms + Letters", "No Imprint", "24WW", "Foreign confirms and letters &mdash; postage applied at mailing"),
-    ("ENVCONRIDGE9X12DW", "818105", "9 x 12", "Flat", "Flat Confirms (Dom. + Foreign)", "No Imprint", "24WW", "Oversize confirms that cannot fold into #10 envelope"),
-]
-
-def build_envelope_spec_rows():
-    rows = []
-    for wms, order, size, style, mail_type, postage, paper, notes in ENVELOPE_SPECS:
-        postage_cls = "flag-under" if "Pre-Sorted" in postage else "flag-ok"
-        rows.append(
-            '<tr>'
-            + f'<td class="env-name" style="font-weight:600;font-size:12px;font-family:monospace">{wms}</td>'
-            + f'<td>{mail_type}</td>'
-            + f'<td>{size}</td>'
-            + f'<td>{style}</td>'
-            + f'<td><span class="{postage_cls}">{postage}</span></td>'
-            + f'<td style="font-size:12px;white-space:normal;max-width:240px">{notes}</td>'
-            + '</tr>'
-        )
-    return "\n".join(rows)
-
-envelope_spec_rows = build_envelope_spec_rows()
-
-# ---------------------------------------------------------------------------
 # Build HTML
 # ---------------------------------------------------------------------------
 html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
 html += '<meta charset="UTF-8">\n'
 html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-html += '<title>Broadridge Envelope Reconciliation Report</title>\n'
+html += '<title>Envelope Reconciliation — For Review</title>\n'
 html += f'<style>{CSS}</style>\n'
 html += '</head>\n<body>\n\n'
 
 # --- Header ---
 html += '<div class="header">\n'
-html += '    <h1>Broadridge envelope reconciliation</h1>\n'
-html += '    <p class="subtitle">Purchase vs. usage analysis &nbsp;|&nbsp; March 2022 &ndash; December 2025</p>\n'
+html += '    <h1>Envelope reconciliation &mdash; for review</h1>\n'
+html += '    <p class="subtitle">March 2022 &ndash; December 2025</p>\n'
+html += '    <p class="from-line">From: Apex Clearing Corporation</p>\n'
 html += f'    <p class="generated">Generated {pd.Timestamp.now().strftime("%B %d, %Y")}</p>\n'
 html += '</div>\n'
 
 # --- Nav ---
 html += '<nav class="nav">\n'
-html += '    <a href="#executive-summary">Summary</a>\n'
+html += '    <a href="#summary">Summary</a>\n'
 html += '    <a href="#monthly-trend">Trend</a>\n'
-html += '    <a href="#envelope-types">By Type</a>\n'
 html += '    <a href="#monthly-detail">Monthly Detail</a>\n'
+html += '    <a href="#envelope-types">By Type</a>\n'
 html += '    <a href="#reference">Reference</a>\n'
 html += '</nav>\n'
 html += '<div class="content">\n'
 
-# Missing data alert (shown only if gaps exist)
-if missing_months:
-    html += '    <div class="alert-box">\n'
-    html += f'        <p><strong>&#9888; Missing data:</strong> {", ".join(missing_months)} &mdash; '
-    html += 'missing source files affect variance calculations.</p>\n'
-    html += '    </div>\n\n'
-
-# ===== EXECUTIVE SUMMARY =====
-html += '<div class="section" id="executive-summary">\n'
+# ===== SECTION 1: SUMMARY =====
+html += '<div class="section" id="summary">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Executive summary</h2>\n'
+html += '        <h2>Summary</h2>\n'
 html += '        <span class="toggle">&#9660;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body">\n'
 
-# -- Bottom line --
-if buffer_months > 3:
-    bl_assessment = (
-        f'Broadridge is holding <strong>{buffer_months:.1f} months</strong> of envelope buffer stock '
-        f'&mdash; more than double their stated 2&ndash;3 month policy. '
-        f'While recent purchasing has corrected to within {abs(recent_var_pct):.0f}% of usage (2024&ndash;2025), '
-        f'the accumulated surplus from 2022 over-purchasing remains. '
-        f'Consider requesting Broadridge reduce purchase orders until inventory aligns with their 2&ndash;3 month buffer target.'
-    )
-elif buffer_months < 2:
-    bl_assessment = (
-        f'Buffer stock is at <strong>{buffer_months:.1f} months</strong>, below Broadridge&rsquo;s 2&ndash;3 month policy. '
-        f'Monitor upcoming purchase orders to ensure adequate supply.'
-    )
-else:
-    bl_assessment = (
-        f'Buffer stock is at <strong>{buffer_months:.1f} months</strong>, within Broadridge&rsquo;s 2&ndash;3 month target. '
-        f'Purchasing is well-calibrated to usage.'
-    )
-
-html += '        <div class="bottom-line">\n'
-html += '            <p class="bl-heading">Bottom line</p>\n'
-html += f'            <p>{bl_assessment}</p>\n'
-html += '        </div>\n'
-
-# -- Post-settlement KPIs (what Apex is paying for — the numbers that matter) --
+# KPI cards
 html += '        <div class="kpi-grid">\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025 ({post_months} mo)</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">Spoilage: {spoilage_rate:.1f}% ({fmt_num(post_spoils)} of {fmt_num(post_used)})</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Implied Inventory</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num(post_variance)}</p><p class="kpi-sub">{buffer_months:.1f} months at current usage</p></div>\n'
-html += f'            <div class="kpi-card"><p class="kpi-label">Avg Monthly Usage</p><p class="kpi-value" style="color:#2954F0">{fmt_num(avg_monthly_usage)}</p><p class="kpi-sub">Trailing 6 months</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Purchased</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_purchased)}</p><p class="kpi-sub">Total envelopes ordered</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Used</p><p class="kpi-value" style="color:#2954F0">{fmt_num(post_used)}</p><p class="kpi-sub">Total envelopes used (volume)</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Variance</p><p class="kpi-value" style="color:{post_var_color}">{fmt_num_parens(post_variance)}</p><p class="kpi-sub">{fmt_pct(post_var_pct)} of purchased</p></div>\n'
+html += f'            <div class="kpi-card"><p class="kpi-label">Months Covered</p><p class="kpi-value" style="color:#2954F0">{post_months}</p><p class="kpi-sub">Mar 2022 &ndash; Dec 2025</p></div>\n'
 html += '        </div>\n'
 
-# -- Inventory gauge: actual vs Broadridge 2-3 month policy --
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:12px;">\n'
-html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Buffer stock vs. Broadridge 2&ndash;3 month policy</p>\n'
-html += inventory_gauge + '\n'
-html += f'            <p style="font-size:12px;color:#6D6E71;margin:8px 0 0;">Based on trailing 6-month average usage of {fmt_num(avg_monthly_usage)}/month. Policy range: {fmt_num(avg_monthly_usage*2)} (2-mo) to {fmt_num(avg_monthly_usage*3)} (3-mo).</p>\n'
-html += '        </div>\n'
-
-# -- Key findings (promoted to top) --
-html += '        <div style="margin-top:16px;font-size:14px;color:#333;line-height:1.8;">\n'
-html += '            <ul style="margin:0;padding-left:20px;">\n'
-html += f'            <li>Implied inventory of <strong>{fmt_num(post_variance)}</strong> envelopes = <strong>{buffer_months:.1f} months</strong> of buffer stock at current usage rates (Broadridge policy: 2&ndash;3 months).</li>\n'
-html += f'            <li>Average monthly usage declined <strong>{usage_decline:.0f}%</strong> from {fmt_num(usage_2022)}/mo (2022) to {fmt_num(usage_2025)}/mo (2025), consistent with the 30% print reduction target in the 2022 renewal term sheet.</li>\n'
-html += f'            <li>Purchasing trajectory has corrected: 2022 over-purchased by 20.3% building initial buffer; 2024&ndash;2025 are within 3% of usage.</li>\n'
-html += f'            <li>Reported spoilage: <strong>{fmt_num(post_spoils)}</strong> envelopes ({spoilage_rate:.1f}% of usage) &mdash; well within the 10% contractual wastage limit. Note: actual wastage (10&ndash;15% per Broadridge) is embedded in the &ldquo;Used&rdquo; figure, not separately reported.</li>\n'
-html += '            </ul>\n'
-html += '        </div>\n'
-
-# -- Year-by-year table --
+# Year-by-year table
 html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
-html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th><th>Avg Mo Used</th></tr></thead>\n'
+html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th></tr></thead>\n'
 html += '            <tbody>\n'
 for yr in sorted(post_yearly.keys()):
     d = post_yearly[yr]
-    yp, yu, ym, ys, mc = d
+    yp, yu, mc = d
     yv = yp - yu
     vc = var_color(yv)
     vpct = yv / yp if yp else 0
-    avg_u = yu / mc if mc else 0
     yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
     html += f'            <tr><td>{yr_label}</td>'
     html += f'<td class="num">{fmt_num(yp)}</td>'
     html += f'<td class="num">{fmt_num(yu)}</td>'
     html += f'<td class="num" style="color:{vc};font-weight:600">{fmt_num_parens(yv)}</td>'
-    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td>'
-    html += f'<td class="num">{fmt_num(avg_u)}</td></tr>\n'
+    html += f'<td class="num" style="color:{vc}">{fmt_pct(vpct)}</td></tr>\n'
 # Total row
 html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_purchased)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_num(post_used)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
-html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_variance/post_purchased if post_purchased else 0)}</strong></td>'
-html += f'<td class="num"><strong>{fmt_num(post_used/post_months if post_months else 0)}</strong></td></tr>\n'
+html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_pct(post_var_pct)}</strong></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
-
-# -- Full-period context (secondary, not KPI cards) --
-full_var_pct = net_variance / total_purchased * 100 if total_purchased else 0
-pre_purchased = total_purchased - post_purchased
-pre_used = total_used - post_used
-html += f'        <div class="context-line">\n'
-html += f'            <strong>Pre-settlement (Jan 2020 &ndash; Feb 2022):</strong> {fmt_num(pre_purchased)} purchased, {fmt_num(pre_used)} used. '
-html += f'These costs were absorbed by Broadridge per the $643,458 pass-through paper dispute settlement (June 2022 renewal term sheet). '
-html += f'<strong>Full period (Jan 2020 &ndash; Dec 2025):</strong> {fmt_num(total_purchased)} purchased, {fmt_num(total_used)} used, '
-html += f'{"+" if net_variance >= 0 else ""}{fmt_num_parens(net_variance)} ({full_var_pct:+.1f}%).\n'
-html += '        </div>\n'
 
 html += '    </div>\n'
 html += '</div>\n\n'
 
-# ===== MONTHLY TREND =====
+# ===== SECTION 2: MONTHLY TREND =====
 html += '<div class="section" id="monthly-trend">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
 html += '        <h2>Monthly trend</h2>\n'
@@ -896,16 +640,22 @@ html += '    <div class="section-body">\n'
 html += '        <div style="background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">\n'
 html += svg_chart
 html += '\n        </div>\n'
-
-# -- Rolling 6-month average usage trend --
-html += '        <div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-top:20px;">\n'
-html += '            <p style="font-size:13px;font-weight:600;color:#052390;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.3px;">Rolling 6-month average usage</p>\n'
-html += usage_trend_svg + '\n'
-html += '        </div>\n'
-
 html += '    </div>\n</div>\n\n'
 
-# ===== PURCHASES & USAGE BY ENVELOPE TYPE =====
+# ===== SECTION 3: MONTHLY DETAIL (expanded by default) =====
+html += '<div class="section" id="monthly-detail">\n'
+html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '        <h2>Monthly detail</h2>\n'
+html += '        <span class="toggle">&#9660;</span>\n'
+html += '    </div>\n'
+html += '    <div class="section-body">\n'
+html += '        <div class="table-wrap"><table class="sortable">\n'
+html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
+html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
+html += '        </table></div>\n'
+html += '    </div>\n</div>\n\n'
+
+# ===== SECTION 4: PURCHASES & USAGE BY ENVELOPE TYPE =====
 html += '<div class="section" id="envelope-types">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
 html += '        <h2>Purchases &amp; usage by envelope type</h2>\n'
@@ -917,50 +667,23 @@ html += '            <thead><tr>' + th_row(["Envelope Type","Purchased","Used","
 html += '            <tbody>\n' + combined_env_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;">Related envelope SKUs grouped by physical size. Usage mapped from billing data via product category, flat/fold, and address type.</p>\n'
-html += '        <div class="info-box" style="margin-top:16px;"><p><strong>Scope note:</strong> Envelope type breakdown covers the full contract period (Jan 2020 &ndash; Dec 2025) because type-level monthly data is not available in the source. Post-settlement purchases (Mar 2022+) account for ~70% of the totals shown.</p></div>\n'
 
-# -- SKU-level recon (purchased + used + variance + variance %) --
+# SKU-level breakdown
 html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">By SKU</h3>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">ENVCONPFSN10NI was replaced by ENVAPXN10&hellip;IND(10/22) in Oct 2022 (postal permit update). Usage shifted but both SKUs remain in purchase history. See the grouped table above for the combined view.</p>\n'
 html += '        <div class="table-wrap"><table class="sortable">\n'
 html += '            <thead><tr>' + th_row(["SKU","Purchased","Used","Variance","Variance %"]) + '</tr></thead>\n'
 html += '            <tbody>\n' + sku_recon_rows + '\n            </tbody>\n'
 html += '        </table></div>\n'
 
-# -- Usage by product --
-html += '        <h3 style="color:#052390;font-size:16px;margin:32px 0 12px;">Usage by product</h3>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:0 0 12px;">Products map to envelopes: <strong>Monthly Statements / Efail Statements</strong> &rarr; N14 Fold or 9x12 Flat (domestic/foreign). <strong>Address Verification Letters / Apex MTC / Apex Checks / Disbursement Letters</strong> &rarr; #10 Confirms+Letters. <strong>Daily Confirms</strong> &rarr; #10 or 9x12 Flat Confirms. <strong>1099 / 1042 / tax forms</strong> &rarr; Tax Form Envelopes.</p>\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Product Name","Total Used"]) + '<th>% of Total</th></tr></thead>\n'
-html += '            <tbody>\n' + usage_product_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-
 html += '    </div>\n</div>\n\n'
 
-# ===== MONTHLY DETAIL (collapsed by default) =====
-html += '<div class="section" id="monthly-detail">\n'
-html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Monthly detail</h2>\n'
-html += '        <span class="toggle">&#9654;</span>\n'
-html += '    </div>\n'
-html += '    <div class="section-body collapsed">\n'
-html += '        <div class="table-wrap"><table class="sortable">\n'
-html += '            <thead><tr>' + th_row(["Month","Purchased","Used","Net Variance","Variance %","Running Balance"]) + '</tr></thead>\n'
-html += '            <tbody>\n' + monthly_rows + '\n            </tbody>\n'
-html += '        </table></div>\n'
-html += '        <p style="font-size:12px;color:#6D6E71;margin:12px 0 0;"><strong>May &amp; Jun 2025:</strong> Zero purchases confirmed (not missing data).</p>\n'
-html += '    </div>\n</div>\n\n'
-
-# ===== REFERENCE (collapsed by default) =====
+# ===== SECTION 5: REFERENCE (collapsed by default) =====
 html += '<div class="section" id="reference">\n'
 html += '    <div class="section-header" onclick="toggleSection(this)">\n'
-html += '        <h2>Reference</h2>\n'
+html += '        <h2>Envelope specifications</h2>\n'
 html += '        <span class="toggle">&#9654;</span>\n'
 html += '    </div>\n'
 html += '    <div class="section-body collapsed">\n'
-
-# Envelope Specifications
-html += '        <h3 style="color:#052390;font-size:16px;margin:0 0 12px;">Envelope specifications</h3>\n'
 html += '        <p style="font-size:13px;color:#6D6E71;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        <div class="table-wrap"><table>\n'
 html += '            <thead><tr><th>WMS Code</th><th>Mail Type</th><th>Size</th><th>Style</th><th>Postage</th><th>Notes</th></tr></thead>\n'
@@ -972,13 +695,15 @@ html += '            <span><strong>NI</strong> = No Imprint (foreign &mdash; pos
 html += '            <span><strong>DW</strong> = Double Window</span>\n'
 html += '            <span><strong>IND</strong> = Individual (Oct 2022 revision)</span>\n'
 html += '        </div>\n'
-
 html += '    </div>\n</div>\n\n'
 
 html += '</div><!-- end .content -->\n\n'
 
 # Footer
-html += '<div class="footer">\n    Confidential &mdash; Apex Clearing Corporation\n</div>\n'
+html += '<div class="footer">\n'
+html += '    Confidential &mdash; Apex Clearing Corporation<br>\n'
+html += '    Prepared for reconciliation review with Broadridge Financial Solutions\n'
+html += '</div>\n'
 
 # JS
 html += f'<script>\n{JS}\n</script>\n'
