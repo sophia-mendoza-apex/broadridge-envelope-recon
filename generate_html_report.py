@@ -132,6 +132,13 @@ recent_6_inv = monthly.tail(6)["Invoiced Amount"].sum()
 projected_annual_cost = recent_6_cost * 2
 projected_annual_inv = recent_6_inv * 2
 
+# Billing basis discrepancy — contract says "usage", Broadridge bills on "receipt"
+avg_inv_per_unit = post_invoiced / post_purchased if post_purchased else 0
+usage_based_invoice = post_used * avg_inv_per_unit
+billing_excess = post_invoiced - usage_based_invoice
+# Monthly breakdown: months with 0 purchases but non-zero usage → $0 billed
+zero_purchase_usage_months = len(post[(post["Envelopes Purchased"] == 0) & (post["Envelopes Used (Volume)"] > 0)])
+
 # Rolling avg monthly usage (last 6 months) for buffer stock calculation
 recent_6 = monthly.tail(6)
 avg_monthly_usage = int(recent_6["Envelopes Used (Volume)"].mean())
@@ -948,6 +955,7 @@ html += '            <ol style="margin:0;padding-left:20px;font-size:14px;line-h
 html += f'                <li><strong>Pause new purchase orders</strong> until buffer stock draws down to 3-month target. Current excess: ~{fmt_num(buffer_drawdown_units)} envelopes ({fmt_money(buffer_drawdown_dollars)}).</li>\n'
 html += f'                <li><strong>Stop purchasing retired NI envelopes</strong> where PFC replacements exist. {fmt_money(excess_from_retired)} in excess NI inventory should be consumed before new orders. Broadridge can add indicia to NI stock for domestic use.</li>\n'
 html += f'                <li><strong>Request quarterly inventory reconciliation</strong> from Broadridge with physical counts vs. WMS to validate the implied {fmt_num(post_adj_variance)} buffer.</li>\n'
+html += f'                <li><strong>Demand usage-based billing</strong> per contract Section 4. Current receipt-based billing has resulted in {fmt_money(billing_excess)} in excess charges since settlement. Request retroactive credit or prospective adjustment.</li>\n'
 html += '            </ol>\n'
 html += '        </div>\n'
 
@@ -997,6 +1005,25 @@ html += '            </table>\n'
 html += f'            <p style="margin-top:8px;">This excess wastage is embedded in the &ldquo;Used&rdquo; figure reported by Broadridge &mdash; '
 html += f'Apex is billed for wastage at the contract rate, but Broadridge consumes 2&ndash;7.5&times; more than what the contract allows. '
 html += f'The cost of excess wastage falls on Broadridge per Section 4.</p>\n'
+html += '        </div>\n'
+
+# -- Billing basis discrepancy callout --
+html += '        <div class="bottom-line" style="border-left-color:#EF5350;margin-top:20px;margin-bottom:20px;">\n'
+html += '            <p class="bl-heading" style="color:#EF5350;">Billing basis discrepancy &mdash; Receipt vs. Usage</p>\n'
+html += f'            <p>Both the original contract (Section 4) and Amendment No. 1 state that generic stock (envelopes) '
+html += f'shall be billed <strong>&ldquo;based on usage&rdquo;</strong>. However, D17 invoice charges match purchase report totals exactly &mdash; '
+html += f'Broadridge is billing on <strong>receipt</strong> (when envelopes are purchased/restocked), not on usage (when envelopes are consumed).</p>\n'
+html += f'            <p style="margin-top:8px;">Applied to post-settlement data ({post_months} months):</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Actual invoiced (receipt-based)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#E0E1E6;font-weight:600;">{fmt_money(post_invoiced)}</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">If billed on usage (contract terms)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#4CAF79;font-weight:600;">{fmt_money(usage_based_invoice)}</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#9A9BA0;">Excess charged to Apex</td>'
+html += f'<td style="border:none;padding:4px 0;color:#EF5350;font-weight:600;">{fmt_money(billing_excess)}</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="margin-top:8px;">Evidence: {zero_purchase_usage_months} months had zero purchases but significant usage, '
+html += f'yet Apex was invoiced $0 for those months. Under usage-based billing, charges would be spread across all months with consumption.</p>\n'
 html += '        </div>\n'
 
 # -- Year-by-year table (with cost) --
@@ -1196,8 +1223,8 @@ html += '        </div>\n'
 html += '        <div class="table-wrap" style="margin-bottom:24px;"><table>\n'
 html += '            <thead><tr><th>Period</th><th>Envelope Wastage</th><th>Margin</th><th>Effective Rate</th><th>Billing Basis</th></tr></thead>\n'
 html += '            <tbody>\n'
-html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash;</td><td>5.0% over vendor</td><td>Usage</td></tr>\n'
-html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>\n'
+html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash;</td><td>5.0% over vendor</td><td>Usage <span style="color:#EF5350;font-size:11px;">(actual: receipt)</span></td></tr>\n'
+html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage <span style="color:#EF5350;font-size:11px;">(actual: receipt)</span></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 
