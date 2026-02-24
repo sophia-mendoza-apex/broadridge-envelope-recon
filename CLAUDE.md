@@ -1480,11 +1480,47 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - Closing ask updated: "...adjusted to reflect the 39% decline in average monthly usage"
 - Data Sources table new row: `"Used" definition` — "Envelopes pulled from warehouse inventory to the production floor, including waste and floor surplus — not limited to envelopes actually mailed (per Brandon Koebel, Oct 2022)"
 
-**Commits this session:**
+**Commits this session (session 18):**
 - `20a0898` — feat: Convert Broadridge report to print-ready light theme with buffer analysis
 - `933e47e` — docs: Update CLAUDE.md with session 18
 - `576656a` — fix: Correct variance color, total buffer calculation, and stale comment
 - `b979f5c` — feat: Add usage decline quantification and "Used" definition to Broadridge report
+
+### 2026-02-24 (session 19)
+
+**Accomplished:**
+- Full numerical consistency audit and fix across all sections of Broadridge report
+- Resolved wastage rounding drift (690,603 vs 690,713) caused by per-SKU-per-month `int()` truncation
+- Resolved By Type Used mismatch (18,469,948 vs 949) caused by hidden Tax Form row
+- Removed Buffer (Mo.) from year-by-year table (misleading at yearly level)
+- Removed redundant confirmation items (data validation, unit rate breakdown)
+- Added "provide supporting documentation" to wastage confirmation item
+- Replaced em dashes with hyphens, fixed envelope size HTML entities, fixed text wrapping
+- Removed redundant excess inventory closing sentence
+
+**Bug Fix 23 — Wastage rounding drift (110 envelopes):**
+- Per-SKU-per-month `int()` truncation across ~400 rows lost 110 envelopes vs per-month aggregate
+- Fix: accumulate as floats, `int(round())` at final aggregate, adjust largest SKU to foot exactly
+
+**Bug Fix 24 — By Type Used off by 1:**
+- Tax Form row (0 purchased, 1 used) was hidden by `u <= 1` filter
+- Fix: changed to `u == 0` — row now visible in grouped table
+
+**Confirmation items reduced from 4 to 2:**
+1. **Wastage rate applied** — kept, added "provide supporting documentation"
+2. **Inventory position** — kept
+
+**Final audit (all pass):**
+| Figure | KPI | Year-by-Year | Wastage Box | By Type | By SKU |
+|--------|-----|-------------|-------------|---------|--------|
+| Purchased | 21,039,500 | 21,039,500 | — | 21,039,500 | 21,039,500 |
+| Used | 18,469,949 | 18,469,949 | — | 18,469,949 | 18,469,949 |
+| Wastage | 690,713 | 690,713 | 690,713 | 690,713 | 690,713 |
+| Variance | 1,878,838 | 1,878,838 | 1,878,838 | 1,878,838 | 1,878,838 |
+
+**Commits this session (session 19):**
+- `bb11cee` — docs: Update CLAUDE.md with session 18 continued
+- `c4d5a1f` — fix: Resolve numerical inconsistencies across Broadridge report
 
 **How to refresh outputs:**
 ```bash
