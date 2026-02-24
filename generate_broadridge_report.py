@@ -350,7 +350,7 @@ def build_sku_recon_rows():
 combined_env_rows = build_combined_env_rows()
 sku_recon_rows = build_sku_recon_rows()
 
-post_var_color = "#4CAF79" if post_variance >= 0 else "#EF5350"
+post_var_color = "#186741" if post_variance >= 0 else "#9D1526"
 post_var_pct = post_variance / post_purchased if post_purchased else 0
 
 # ---------------------------------------------------------------------------
@@ -411,9 +411,6 @@ table tbody tr:nth-child(even) { background: #FAFAFA; }
 }
 """
 
-# ---------------------------------------------------------------------------
-# JS
-# ---------------------------------------------------------------------------
 def th_row(headers):
     return "".join(f'<th>{h}</th>' for h in headers)
 
@@ -485,9 +482,8 @@ html += f'<td class="num" style="color:#6D6E71;"><strong>{fmt_num(post_wastage)}
 total_wpct = post_wastage / post_used if post_used else 0
 html += f'<td class="num" style="color:#6D6E71;"><strong>{fmt_pct(total_wpct)}</strong></td>'
 html += f'<td class="num" style="color:{post_var_color};font-weight:700"><strong>{fmt_num_parens(post_variance)}</strong></td>'
-_total_avg_mo = post_used / post_months if post_months else 0
-_total_bc = buffer_color(post_variance, _total_avg_mo)
-html += f'<td class="num" style="color:{_total_bc};font-weight:700"><strong>{fmt_buffer_months(post_variance, _total_avg_mo)}</strong></td>'
+_total_bc = buffer_color(post_variance, _trailing_avg)
+html += f'<td class="num" style="color:{_total_bc};font-weight:700"><strong>{fmt_buffer_months(post_variance, _trailing_avg)}</strong></td>'
 html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
