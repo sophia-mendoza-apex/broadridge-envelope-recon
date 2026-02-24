@@ -1228,6 +1228,25 @@ html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</t
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 
+# Generic stock classification
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Generic stock classification</h3>\n'
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 12px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>\n'
+html += '            <div class="table-wrap" style="margin:0;"><table style="font-size:13px;">\n'
+html += '                <thead><tr><th>Envelope</th><th>Size</th><th>Windows</th><th>Paper</th><th>Ink</th><th>Security Tint</th><th>Indicia</th><th>Client Branding</th></tr></thead>\n'
+html += '                <tbody>\n'
+html += '                <tr><td>ENVMEAPEXN14PFC</td><td>4&frac34; &times; 11&frac716;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>PFC</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVMEAPEX9X12PFC</td><td>9 &times; 12</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>PFC</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVAPXN10PFSCONN10IND</td><td>4&frac18; &times; 9&frac12;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>PFC</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVCONPFSN10NI</td><td>4&frac18; &times; 9&frac12;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>None (NI)</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVMERIDGEN14NI11/08</td><td>4&frac34; &times; 11&frac716;</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>None (NI)</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVMERIDGE9X12NI11/08</td><td>9 &times; 12</td><td>Double</td><td>24WW</td><td>Black</td><td>Crosshatch</td><td>None (NI)</td><td>None</td></tr>\n'
+html += '                <tr><td>ENVCONRIDGE9X12DW</td><td>9 &times; 12</td><td>Double (vert.)</td><td>24WW</td><td>Black</td><td>Wood grain</td><td>None</td><td>None</td></tr>\n'
+html += '                </tbody>\n'
+html += '            </table></div>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
+html += '        </div>\n'
+
 # Envelope Specifications
 html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 12px;">Envelope specifications</h3>\n'
 html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">All envelopes are double-window, 24WW paper, black ink with crosshatch black inside tint. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
