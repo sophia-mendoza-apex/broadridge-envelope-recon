@@ -1308,6 +1308,8 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - `8ec6d05` — fix: Add wastage email quotes and remove envelope specs
 - `43ef65d` — docs: Update CLAUDE.md with session 16 part 4
 - `1726ee4` — fix: Add wastage columns to By Type and By SKU tables
+- `c8909bb` — docs: Update CLAUDE.md with session 16 part 5
+- `177e772` — fix: Remove client-specific stock language from Denci quote
 
 **How to refresh outputs:**
 ```bash
