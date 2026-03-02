@@ -77,12 +77,23 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 | 2024 | 4,621,000 | 4,348,349 | +272,651 | +5.9% |
 | 2025 | 4,040,500 | 3,410,405 | +630,095 | +15.6% |
 
+### Contract Rates (verified from source PDFs)
+
+**Original Schedule (Jan 2019 - Dec 2023):**
+- Materials billed at cost + wastage (no margin)
+- Wastage: 10% generic paper, 5% generic envelopes
+
+**Amendment No. 1 (Jan 2024 - present):**
+- Materials billed at inventory cost + 10% margin
+- Generic inventory cost = vendor price + wastage (10% continuous, 3% cutsheet, 2% envelopes)
+- Client-specific inventory cost = vendor price (no wastage)
+- Generic stock: billed on usage. Client-specific stock: billed on receipt.
+
 ### Key Findings
 - Usage declined 39% from 462,992/mo (2022) to 284,200/mo (2025)
-- Broadridge admits 10-15% operational wastage vs 5%/2% contract limit (excess: $81K-$146K)
-- Billing is receipt-based despite contract requiring usage-based ($192,372 excess)
-- Broadridge charges 10% margin without 2% wastage surcharge - favors Apex vs 12.2% contract permits
-- All envelopes are generic stock (no branding) - confirms usage-based billing applies
+- Broadridge admits 10-15% operational wastage vs 2% contract limit for envelopes
+- Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based). Classification determines whether $192K billing difference is a discrepancy.
+- Under client-specific classification, 10% margin with no wastage surcharge is contractually correct
 - Post-settlement spoils: 55,733 of 18,469,949 = 0.30%
 - Data confidence: ~95% overall totals, ~75% per-SKU breakdown
 
@@ -100,11 +111,13 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
-- [ ] Review Broadridge report in browser/PDF; decide if ready to send
+- [ ] **Send reply to Denci** re: client-specific vs generic classification (draft ready, pending review)
+- [ ] Get Denci's answer on what makes unbranded envelopes client-specific
+- [ ] Follow up on Edgewood materials audit timeline
+- [ ] Confirm 2026 ordering adjusted for usage decline
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
-- [ ] Consider drafting formal letter to Broadridge re: excess inventory, wastage discrepancy, billing basis
 - [ ] Request actual Jun-20 purchase report from Broadridge
-- [ ] Send Broadridge report to Broadridge contacts for data validation
+- [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Reference Files
 
