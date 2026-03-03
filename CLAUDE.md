@@ -93,6 +93,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - Usage declined 39% from 462,992/mo (2022) to 284,200/mo (2025)
 - Broadridge admits 10-15% operational wastage vs 2% contract limit for envelopes
 - Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based). Classification determines whether $192K billing difference is a discrepancy.
+- **Branding dispute (Mar 3):** Denci claims envelopes DO carry Apex branding; we say they don't. Sophia sent 7 envelope template PDFs from 2024 renegotiations as evidence and asked what branding specifically. Awaiting reply.
 - Under client-specific classification, 10% margin with no wastage surcharge is contractually correct
 - Post-settlement spoils: 55,733 of 18,469,949 = 0.30%
 - Data confidence: ~95% overall totals, ~75% per-SKU breakdown
@@ -111,12 +112,12 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
-- [ ] **Send reply to Denci** re: client-specific vs generic classification (draft ready, pending review)
-- [ ] Get Denci's answer on what makes unbranded envelopes client-specific
-- [ ] Follow up on Edgewood materials audit timeline
-- [ ] Confirm 2026 ordering adjusted for usage decline
+- [ ] **Awaiting Denci's reply** on branding claim — Sophia sent 7 envelope specs, asked when they went into production and what product they're for
+- [ ] Follow up on Edgewood materials audit timeline (Denci committed but no timeline yet)
+- [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
 - [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
+- [x] ~~Send reply to Denci re: classification~~ (done, 2026-03-02; he replied 2026-03-03 claiming branding; Sophia countered same day)
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Reference Files
