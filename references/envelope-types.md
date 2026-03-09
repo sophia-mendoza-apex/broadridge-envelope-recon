@@ -47,14 +47,53 @@ Maps billing workbook fields (`Product`, `Flat_Fold`, `Address_Type`) to canonic
 | CONFIRM/LETTER/CHECK | FOLD/MIXED/BULK | FOREIGN | ENVCONPFSN10NI |
 | TAX DOCUMENT | any | any | Tax Form Envelopes (1099/1099-R) |
 
+## Product-to-Envelope Mapping
+
+| Product | Category | Envelope Type | Volume (Full Period) | Share |
+|---------|----------|--------------|---------------------|-------|
+| Address Verification Letters | LETTER | N10 | 8,524,377 | 32.3% |
+| Monthly Statements | STATEMENT | N14/9x12 | 8,385,088 | 31.8% |
+| Apex MTC (New) | CONFIRM | N10 | 7,834,713 | 29.7% |
+| Efail Statements | STATEMENT | N14/9x12 | 1,306,112 | 5.0% |
+| Apex MTC (Old) | CONFIRM | N10 | 244,630 | 0.9% |
+| All Other | Various | Various | 78,497 | 0.3% |
+
+### N10 Envelope: CON vs LTR Physical Variants
+
+Two physically distinct N10 envelopes exist:
+
+| Variant | Windows | Construction | Purchase Volume (Post-Settlement) | Share |
+|---------|---------|-------------|----------------------------------|-------|
+| N10 CON (double-window) | 2 | Return address visible through window from document | 12,952,000 (69 orders) | 99.9% |
+| N10 LTR (single-window) | 1 | Return address on envelope (preprinted or runtime) | 12,000 (2 orders) | 0.1% |
+
+- N10 LTR first purchased May 2024 (SKU: ENVAPXN10APEXN10LTRPFC4/24)
+- For 4+ years (Jan 2020 - Apr 2024), ALL letters used the double-window CON envelope
+- Address Verification Letters (8.5M) = 51.5% of all N10 usage, historically in CON envelopes
+- The LTR variant is essentially a pilot SKU at 0.09% of N10 purchases
+
+### Purchase Cadence (Post-Settlement)
+
+| Type | Orders | Avg Gap | Avg Order Size | Notes |
+|------|--------|---------|---------------|-------|
+| N10 CON | 69 | 1.1 months | 187,710 | Ordered almost monthly |
+| N14 Stmt | 53 | 1.4 months | 142,981 | Ordered almost monthly |
+| 9x12 Stmt | 14 | 3.6 months | 29,464 | Quarterly |
+| 9x12 DW | 4 | 1.8 months | 10,000 | Sporadic |
+| N10 LTR | 2 | 7.0 months | 6,000 | Twice total |
+
+Purchase cadence has not adjusted for the 39% usage decline (462K/mo in 2022 to 284K/mo in 2025).
+
 ## Generic Stock Classification
 
-All 7 Apex envelope types are standard double-window envelopes with no company logos, branding, or custom design:
+6 of 7 active envelope types (and the retired ENVCONPFSN10NI) are standard double-window envelopes with no company logos, branding, or custom design:
 - PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding
 - NI (No Imprint) envelopes are completely blank — usable by any Broadridge client
 - All use 24WW paper, black ink, crosshatch/wood grain security tint
 - Supplier: United Envelope LLC, Mt. Pocono, PA
 - Classification as generic stock confirms: usage-based billing and lower wastage rate (5%/2%) apply per contract
+
+**Exception:** ENVAPXN10APEXN10LTRPFC4/24 (N10 LTR) is single-window. Return address origin (vendor-preprinted vs runtime-printed) is unconfirmed. This SKU represents 0.09% of N10 purchases and does not affect the classification argument for the other 99.9%.
 
 ## Envelope Spec Source Files
 

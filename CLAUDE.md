@@ -59,7 +59,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 | Wastage (Est., contractual max) | 690,713 |
 | Adj. Variance | +1,878,838 (+8.9%) |
 | Total Invoiced | $1,575,143 |
-| Buffer stock | ~6.5 months (policy: 2-3 months) |
+| Buffer stock | ~9.0 months (policy: 2-3 months) |
 
 **Full period (Jan 2020 - Dec 2025):**
 | Metric | Value |
@@ -94,11 +94,18 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - Broadridge admits 10-15% operational wastage vs 2% contract limit for envelopes
 - Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based).
 - **Classification dispute (Mar 9):** Denci gave four shifting answers, ultimately conceding "yes they are standard envelopes" (Mar 6 PM). Sophia sent email Mar 9 pinning concession to contract language, asking to confirm generic classification.
-- **Financial impact of misclassification: $225,870 (14.3%)** -- computed comparing actual invoiced (receipt-based) vs generic terms (usage-based). Added to Broadridge report but NOT yet cited in emails (strategic: establish principle first, bring dollars later).
+- **Financial impact of misclassification: $192,372 (14.3%)** -- computed comparing actual invoiced (receipt-based) vs generic terms (usage-based). Added to Broadridge report but NOT yet cited in emails (strategic: establish principle first, bring dollars later).
 - **2023 unauthorized margin: $44,218** -- 10% markup applied all of 2023 before Amendment authorized it (Jan 2024). Separate issue from classification, not yet raised.
 - **CPI does not apply to materials** -- Amendment explicitly excludes materials from CPI adjustments. No CPI escalation found in envelope unit rates.
-- Post-settlement spoils: 55,733 of 18,469,949 = 0.30%
+- Post-settlement spoils: 54,277 of 18,469,949 = 0.29%
 - Data confidence: ~95% overall totals, ~75% per-SKU breakdown
+
+### Product Usage & N10 Analysis (Session 21)
+- **Three products drive 94% of envelope usage:** Address Verification Letters (32.3%), Monthly Statements (31.8%), Apex MTC Confirms (29.7%)
+- **N10 LTR vs CON:** Only 12,000 of 12,964,000 N10 purchases (0.09%) are the single-window LTR variant. 99.9% are double-window CON.
+- **Letters used CON envelopes for 4+ years:** Before the LTR variant was introduced (May 2024), all 8.5M Address Verification Letters went into double-window confirm envelopes.
+- **Purchase cadence not tracking usage decline:** N10 CON ordered every ~1 month at 188K/order despite usage dropping from 300K to 200K/month. N10 running balance at +1.9M.
+- **ENVCONPFSN10NI overstock:** 3.6M purchased vs 2.1M used post-settlement (+1.55M surplus, 43%). Accounts for 60% of all excess inventory.
 
 ### Internal Report Structure
 1. Executive Summary (bottom line, recommendations, KPIs, gauge, wastage/billing callouts, year-by-year, 2026 projection, pre-settlement context)
@@ -128,6 +135,20 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Session Log
+
+### 2026-03-09 — Session 21 (Product Usage & Purchase Cadence Analysis)
+
+**Accomplished:**
+- **Deep dive into product-to-envelope mapping:** Identified that 3 products drive 94% of all envelope usage (Address Verification Letters 32.3%, Monthly Statements 31.8%, Apex MTC Confirms 29.7%)
+- **N10 LTR vs CON analysis:** Discovered that only 12,000 of 12,964,000 post-settlement N10 purchases (0.09%) are the single-window LTR variant Denci is using to argue client-specific classification
+- **Letters used CON envelopes historically:** For 4+ years (Jan 2020 – Apr 2024), all Address Verification Letters (8.5M) went into double-window confirm envelopes — the LTR variant didn't exist until May 2024
+- **Purchase cadence analysis:** N10 CON ordered every ~1 month at 188K/order despite usage declining from 300K/mo (2022) to 200K/mo (2025). Running surplus at +1.9M envelopes.
+- **Updated references/envelope-types.md** with product mapping, N10 LTR/CON split, purchase cadence, and corrected generic stock classification language
+- **Updated generate_html_report.py** — added product usage breakdown, N10 variant analysis, and purchase cadence sections to Executive Summary
+- **Updated generate_broadridge_report.py** — added product usage, N10 CON/LTR table, purchase cadence observation, and updated generic stock classification to reference die line specs
+- **Regenerated both HTML reports** successfully
+
+**Key Insight:** Denci's entire classification argument rests on an envelope variant that represents 0.09% of purchases. The product data proves that letters and confirms historically shared the same double-window envelope — the single-window LTR is essentially a pilot SKU.
 
 ### 2026-03-09 — Session 20 (Envelope Classification Deep Dive)
 

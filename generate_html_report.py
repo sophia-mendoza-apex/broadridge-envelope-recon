@@ -14,6 +14,8 @@ HTML_PATH = os.path.join(BASE_DIR, "Envelope Reconciliation Report.html")
 monthly = pd.read_excel(EXCEL_PATH, sheet_name="Monthly Summary")
 by_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="By Envelope Type")
 usage_by_env_type_monthly = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Envelope Type")
+usage_by_product = pd.read_excel(EXCEL_PATH, sheet_name="Usage by Product")
+purchase_detail = pd.read_excel(EXCEL_PATH, sheet_name="Purchase Detail")
 
 print("Data loaded successfully.")
 
@@ -647,6 +649,97 @@ recent_u = sum(post_yearly[y][1] for y in recent_yrs)
 recent_var_pct = (recent_p - recent_u) / recent_p * 100 if recent_p else 0
 
 # ---------------------------------------------------------------------------
+# Product usage analysis — what mail types drive envelope consumption
+# ---------------------------------------------------------------------------
+# Top products by volume
+product_usage_data = []
+total_product_usage = usage_by_product["Total Envelopes Used"].sum()
+for _, r in usage_by_product.iterrows():
+    vol = safe(r["Total Envelopes Used"])
+    pct = vol / total_product_usage * 100 if total_product_usage else 0
+    # Determine envelope category
+    name = str(r["Product Name"]).upper()
+    if any(x in name for x in ("STATEMENT", "EFAIL")):
+        env_cat = "N14/9x12"
+    elif any(x in name for x in ("1099", "1042", "5498", "TAX")):
+        env_cat = "Tax Forms"
+    else:
+        env_cat = "N10"
+    product_usage_data.append((r["Product Name"], vol, pct, env_cat, r.get("First Month", ""), r.get("Last Month", "")))
+product_usage_data.sort(key=lambda x: -x[1])
+
+# N10 LTR vs CON purchase split (post-settlement)
+n10_ltr_orders = 0
+n10_ltr_qty = 0
+n10_ltr_cost = 0
+n10_con_orders = 0
+n10_con_qty = 0
+n10_con_cost = 0
+n10_ltr_first = None
+
+for _, r in purchase_detail.iterrows():
+    desc = str(r.get("Description", "")).upper()
+    month = str(r.get("Month", ""))
+    dt_check = month_label_to_sortkey(month) if month else (0, 0)
+    if dt_check < settlement_key:
+        continue
+    if "LTR" in desc and "N10" in desc:
+        n10_ltr_orders += 1
+        n10_ltr_qty += int(safe(r.get("Qty Ordered", r.get("Qty Received", 0))))
+        n10_ltr_cost += safe(r.get("Total Cost", 0))
+        if n10_ltr_first is None:
+            n10_ltr_first = month
+    elif any(x in desc for x in ("N10", "CON")) and "N14" not in desc and "9X12" not in desc and "TAX" not in desc and "STMT" not in desc and "LTR" not in desc:
+        n10_con_orders += 1
+        n10_con_qty += int(safe(r.get("Qty Ordered", r.get("Qty Received", 0))))
+        n10_con_cost += safe(r.get("Total Cost", 0))
+
+n10_total_qty = n10_ltr_qty + n10_con_qty
+n10_ltr_pct = n10_ltr_qty / n10_total_qty * 100 if n10_total_qty else 0
+
+# Purchase cadence analysis (post-settlement)
+from collections import defaultdict as _dd2
+_cadence_types = _dd2(list)
+for _, r in purchase_detail.iterrows():
+    month = str(r.get("Month", ""))
+    dt_check = month_label_to_sortkey(month) if month else (0, 0)
+    if dt_check < settlement_key:
+        continue
+    desc = str(r.get("Description", "")).upper()
+    qty = int(safe(r.get("Qty Ordered", r.get("Qty Received", 0))))
+    if "N14" in desc and "RIDGE" not in desc:
+        _cadence_types["N14 Stmt"].append((month, qty))
+    elif "LTR" in desc and "N10" in desc:
+        _cadence_types["N10 LTR"].append((month, qty))
+    elif any(x in desc for x in ("N10", "CON")) and "N14" not in desc and "9X12" not in desc and "STMT" not in desc and "LTR" not in desc:
+        _cadence_types["N10 CON"].append((month, qty))
+    elif "9X12" in desc and ("PFC" in desc or "ME" in desc or "STMT" in desc) and "RIDGE" not in desc and "DW" not in desc:
+        _cadence_types["9x12 Stmt"].append((month, qty))
+
+cadence_data = []
+for ctype, entries in sorted(_cadence_types.items(), key=lambda x: -sum(e[1] for e in x[1])):
+    total_qty = sum(e[1] for e in entries)
+    n_orders = len(entries)
+    avg_order = total_qty / n_orders if n_orders else 0
+    unique_months = sorted(set(e[0] for e in entries), key=month_label_to_sortkey)
+    if len(unique_months) > 1:
+        first_sk = month_label_to_sortkey(unique_months[0])
+        last_sk = month_label_to_sortkey(unique_months[-1])
+        span_months = (last_sk[0] - first_sk[0]) * 12 + (last_sk[1] - first_sk[1])
+        avg_gap = span_months / (len(unique_months) - 1) if len(unique_months) > 1 else 0
+    else:
+        avg_gap = 0
+    cadence_data.append((ctype, n_orders, total_qty, avg_order, avg_gap))
+
+# N10 usage split — letters vs confirms
+_n10_letter_vol = sum(safe(r["Total Envelopes Used"]) for _, r in usage_by_product.iterrows()
+                      if any(x in str(r["Product Name"]).upper() for x in ("LETTER", "CHECK", "DISBURSEMENT")))
+_n10_confirm_vol = sum(safe(r["Total Envelopes Used"]) for _, r in usage_by_product.iterrows()
+                       if any(x in str(r["Product Name"]).upper() for x in ("MTC", "CONFIRM", "DAILY CONFIRM"))
+                       and "STATEMENT" not in str(r["Product Name"]).upper())
+_n10_total_usage = _n10_letter_vol + _n10_confirm_vol
+
+# ---------------------------------------------------------------------------
 # CSS
 # ---------------------------------------------------------------------------
 CSS = """*, *::before, *::after { box-sizing: border-box; }
@@ -1036,6 +1129,41 @@ html += f'            <p style="margin-top:8px;">Evidence: {zero_purchase_usage_
 html += f'yet Apex was invoiced $0 for those months. Under usage-based billing, charges would be spread across all months with consumption.</p>\n'
 html += '        </div>\n'
 
+# -- Product usage breakdown --
+html += '        <div class="bottom-line" style="border-left-color:#5B9BF7;margin-top:20px;margin-bottom:20px;">\n'
+html += '            <p class="bl-heading" style="color:#5B9BF7;">Envelope usage by mail product</p>\n'
+html += '            <p>Envelope consumption is driven by three products that account for 94% of all usage:</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += '                <tr style="border-bottom:1px solid #3A3B40;"><td style="border:none;padding:6px 20px 6px 0;color:#82B4FF;font-weight:600;">Product</td><td style="border:none;padding:6px 16px;color:#82B4FF;font-weight:600;text-align:right;">Volume</td><td style="border:none;padding:6px 16px;color:#82B4FF;font-weight:600;text-align:right;">Share</td><td style="border:none;padding:6px 0;color:#82B4FF;font-weight:600;">Envelope</td></tr>\n'
+for name, vol, pct, env_cat, first, last in product_usage_data[:5]:
+    html += f'                <tr><td style="border:none;padding:4px 20px 4px 0;color:#E0E1E6;">{name}</td>'
+    html += f'<td style="border:none;padding:4px 16px;color:#E0E1E6;text-align:right;">{fmt_num(vol)}</td>'
+    html += f'<td style="border:none;padding:4px 16px;color:#9A9BA0;text-align:right;">{pct:.1f}%</td>'
+    html += f'<td style="border:none;padding:4px 0;color:#9A9BA0;">{env_cat}</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="margin-top:10px;"><strong>Key insight:</strong> Address Verification Letters (8.5M) and Confirms (8.1M) both use #10 envelopes, '
+html += f'yet only <strong>{fmt_num(n10_ltr_qty)}</strong> of {fmt_num(n10_total_qty)} N10 purchases ({n10_ltr_pct:.2f}%) are the single-window LTR variant. '
+html += f'For 4+ years (Jan 2020 &ndash; Apr 2024), all letters used the same double-window confirm envelope.</p>\n'
+html += '        </div>\n'
+
+# -- N10 LTR vs CON and purchase cadence --
+html += '        <div class="bottom-line" style="border-left-color:#FFA726;margin-top:20px;margin-bottom:20px;">\n'
+html += '            <p class="bl-heading" style="color:#FFA726;">Purchase cadence not tracking usage decline</p>\n'
+html += '            <table style="margin-top:8px;width:auto;background:transparent;font-size:13px;">\n'
+html += '                <tr style="border-bottom:1px solid #3A3B40;"><td style="border:none;padding:6px 20px 6px 0;color:#82B4FF;font-weight:600;">Type</td><td style="border:none;padding:6px 16px;color:#82B4FF;font-weight:600;text-align:right;">Orders</td><td style="border:none;padding:6px 16px;color:#82B4FF;font-weight:600;text-align:right;">Total Qty</td><td style="border:none;padding:6px 16px;color:#82B4FF;font-weight:600;text-align:right;">Avg Order</td><td style="border:none;padding:6px 0;color:#82B4FF;font-weight:600;text-align:right;">Avg Gap</td></tr>\n'
+for ctype, n_orders, total_qty, avg_order, avg_gap in cadence_data:
+    gap_str = f'{avg_gap:.1f} mo' if avg_gap > 0 else 'N/A'
+    html += f'                <tr><td style="border:none;padding:4px 20px 4px 0;color:#E0E1E6;">{ctype}</td>'
+    html += f'<td style="border:none;padding:4px 16px;color:#E0E1E6;text-align:right;">{n_orders}</td>'
+    html += f'<td style="border:none;padding:4px 16px;color:#E0E1E6;text-align:right;">{fmt_num(total_qty)}</td>'
+    html += f'<td style="border:none;padding:4px 16px;color:#9A9BA0;text-align:right;">{fmt_num(avg_order)}</td>'
+    html += f'<td style="border:none;padding:4px 0;color:#9A9BA0;text-align:right;">{gap_str}</td></tr>\n'
+html += '            </table>\n'
+html += f'            <p style="margin-top:10px;">N10 CON envelopes are ordered every <strong>~1 month</strong> at ~188K/order, '
+html += f'but usage has dropped from ~300K/mo (2022) to ~200K/mo (2025). The cumulative N10 surplus has grown to <strong>~1.9M envelopes</strong>. '
+html += f'Only {n10_ltr_orders} orders for the N10 LTR variant have ever been placed (first: {n10_ltr_first or "N/A"}).</p>\n'
+html += '        </div>\n'
+
 # -- Year-by-year table (with cost) --
 html += '        <div class="table-wrap" style="margin-top:20px;"><table>\n'
 html += '            <thead><tr><th>Year</th><th>Purchased</th><th>Used</th><th>Variance</th><th>Var %</th><th>Invoiced</th><th>Unit Cost</th></tr></thead>\n'
@@ -1241,7 +1369,7 @@ html += '        </table></div>\n'
 # Generic stock classification
 html += '        <h3 style="color:#82B4FF;font-size:16px;margin:24px 0 16px;">Generic stock classification</h3>\n'
 html += '        <div style="background:#1E1F23;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid #2A2B30;">\n'
-html += '            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 12px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). All Apex envelope types are generic stock:</p>\n'
+html += '            <p style="font-size:13px;line-height:1.7;color:#E0E1E6;margin:0 0 12px;">Both the original contract and Amendment No. 1 distinguish between <strong>generic stock</strong> (billed on usage, lower wastage) and <strong>client-specific stock</strong> (billed on receipt). 7 of 8 Apex envelope types are provably generic (double-window, no client info on envelope). The 8th (N10 LTR, single-window) represents 0.09% of N10 purchases:</p>\n'
 html += '            <div class="table-wrap" style="margin:0;"><table style="font-size:13px;">\n'
 html += '                <thead><tr><th>Envelope</th><th>Size</th><th>Windows</th><th>Paper</th><th>Ink</th><th>Security Tint</th><th>Indicia</th><th>Client Branding</th></tr></thead>\n'
 html += '                <tbody>\n'
@@ -1254,7 +1382,7 @@ html += '                <tr><td>ENVMERIDGE9X12NI11/08</td><td>9 &times; 12</td>
 html += '                <tr><td>ENVCONRIDGE9X12DW</td><td>9 &times; 12</td><td>Double (vert.)</td><td>24WW</td><td>Black</td><td>Wood grain</td><td>None</td><td>None</td></tr>\n'
 html += '                </tbody>\n'
 html += '            </table></div>\n'
-html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">All envelopes are standard double-window envelopes with no company logos, branding, or custom design elements. Return and recipient addresses are visible through the windows from the printed content inside. PFC (Pre-Sorted First-Class) indicia is a functional USPS postage marking, not client branding. NI (No Imprint) envelopes are completely blank. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
+html += '            <p style="font-size:12px;color:#9A9BA0;margin:12px 0 0;">7 of 8 envelope types are standard double-window envelopes with no company logos, branding, or custom design. Return and recipient addresses are visible through the windows from the printed content inside. PFC indicia is a functional USPS postage marking, not client branding. NI envelopes are completely blank. The single-window N10 LTR variant (first purchased May 2024, 12,000 units total) represents 0.09% of N10 purchases. Supplier: United Envelope LLC, Mt. Pocono, PA.</p>\n'
 html += '        </div>\n'
 
 # Envelope Specifications
