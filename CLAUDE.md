@@ -114,8 +114,10 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
-- [ ] **Awaiting Denci's reply** on generic classification confirmation (email sent Mar 9)
-- [ ] **Awaiting Edgewood audit completion date** -- asked three times (Mar 6 AM, Mar 6 PM, Mar 9), no answer
+- [ ] **Reply to Denci's Mar 9 email** — address the die line sample, separate #10 LTR (single-window) from all other types (double-window)
+- [ ] **Confirm whether N10 LTR return address is vendor-preprinted or runtime-printed** — critical question for classification of that one SKU
+- [ ] **Demand volume split** between N10 LTR (letters) vs N10 CON (confirms) — confirms are provably double-window/generic
+- [ ] **Awaiting Edgewood audit completion date** — asked four times (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM), no answer
 - [ ] If Denci pushes back on classification: deploy Move 2 (financial impact $225,870 + 2023 margin $44,218 + his Aug 2023 "generic stock" email)
 - [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
 - [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
@@ -124,6 +126,41 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [x] ~~Send Mar 9 email pinning "standard envelopes" concession, asking to confirm generic classification~~
 - [x] ~~Update Broadridge report with classification billing impact section~~
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
+
+## Session Log
+
+### 2026-03-09 — Session 20 (Envelope Classification Deep Dive)
+
+**Accomplished:**
+- **Analyzed Denci's Mar 9 reply** — two new arguments: (1) Apex code printed on envelopes, (2) operational machine setup procedure
+- **Analyzed both envelope samples Denci sent:**
+  - Die line (N10 LTR PFC 4/24): single-window, postage indicia "PAID APEX", NO return address on die line
+  - Mar 3 finished piece: single-window with "Apex Clearing Corporation, PO BOX 9007" return address
+- **Searched Outlook (Graph API)** for prior correspondence about envelope types, classification, and purchase history
+- **Discovered critical distinction: CONFIRM vs LETTER envelopes**
+  - All 7 existing spec files (from `Products and Envelope Samples` folder) show DOUBLE-WINDOW construction — return address shows through window from document, nothing client-specific on envelope
+  - N10 LTR PFC (4/24) is a separate LETTER variant with SINGLE-WINDOW — return address either pre-printed or runtime-printed
+- **Found Koebel Aug 2025 emails** confirming generic NI envelopes purchased and sprayed with indicia, then relabeled as APX SKUs
+- **Found Koebel Apr 24, 2025 email** about IMB barcode truncation in envelope window — planning new revision (4/25) with expanded window, treats as routine operational update, no mention of client-specific classification
+- **Found Denci Aug 17, 2023 email** where he described envelope pricing as "cost plus wastage for generic stock — specifically for envelopes that is 5%" — directly contradicts his Mar 2026 client-specific position
+- **Corrected email-analysis.md** — Aug 2023 email was FROM Denci (not Terry Ray), making the generic stock characterization even more significant
+- **Strategic assessment:** Even if N10 LTR is legitimately client-specific (pre-printed return address), 7 of 8 envelope types are provably generic based on manufacturer die lines. Best approach: concede LTR if needed, force reclassification on everything else.
+
+**Key Evidence Catalog:**
+| Evidence | Source | Impact |
+|---|---|---|
+| 7 envelope die lines — all double-window, no client info | `Products and Envelope Samples` folder | Proves generic for confirms/statements |
+| N10 LTR die line — no return address shown | Denci Mar 9 attachment | Suggests return address is runtime-printed |
+| Denci Aug 2023: "generic stock — 5% for envelopes" | Outlook search | Contradicts his Mar 2026 position |
+| Koebel Aug 2025: NI envelopes sprayed and relabeled | Outlook search | Shows "APX" codes are internal labels |
+| Koebel Apr 2025: window expansion = routine update | Outlook search | Treats envelope changes as operational |
+| Denci Feb 2026: envelopes = "paper, boxes, etc." | Outlook search | Treats envelopes as materials |
+| Koebel Nov 2024: "3 months inventory" target | Outlook search | Generic stock management practice |
+
+**Open Question:**
+- Is the N10 LTR return address vendor-preprinted or runtime-printed? This determines classification for that one SKU only. All other types are provably generic regardless.
+
+**Confidence Assessment:** 75-80% overall. Strong on 7 of 8 envelope types. The N10 LTR is the only one with ambiguity.
 
 ## Reference Files
 

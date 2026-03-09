@@ -39,10 +39,12 @@
 - Denci (response): *"The 5% is for generic envelope stock, however we are using **Apex specific envelopes** which run at 10%."*
 - Note: Under the original schedule, client-specific stock = vendor price with NO wastage surcharge. The "10%" rate for "Apex specific envelopes" has no contractual basis. Denci appears to be applying the generic paper stock rate (10%) to envelopes.
 
-**Aug 17, 2023 — "Request for Definitions of Charges on Renewal Proposal" (Terry Ray -> Denci/Edelstein):**
-- Terry Ray described materials as *"billed at cost plus wastage for generic stock"* — applying the generic stock framework to all materials including envelopes
-- Edelstein responded that Denci was OOO, would get back with answers
-- Broadridge never corrected the "generic stock" characterization in this thread
+**Aug 17, 2023 — "Re: Request for Definitions of Charges on Renewal Proposal" (Denci -> Terry Ray):**
+- **Denci himself** (not Terry Ray as previously noted) provided pricing definitions in reply to Terry Ray's questions
+- Section 8b (Paper markup): Quoted full contract language including both generic and client-specific billing models
+- Section 11c (Envelopes - standard markup): *"Cost plus wastage for generic stock - specifically for envelopes that is 5%."* — described envelope pricing using ONLY the generic stock framework, no mention of client-specific classification
+- Bottom note: *"Materials are billed at cost plus wastage for generic stock."*
+- **Significance:** Denci applied generic stock pricing to our envelopes in Aug 2023, directly contradicting his Mar 2026 position that they are client-specific
 
 **Mar 2, 2026 — "RE: Envelope reconciliation for review" (Denci -> Sophia):**
 - Denci: *"Your envelopes are client specific inventory and are billed under that model."*
