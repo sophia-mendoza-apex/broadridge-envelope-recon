@@ -189,6 +189,46 @@ _2022_avg = post_yearly[2022][1] / post_yearly[2022][2] if post_yearly[2022][2] 
 _2025_avg = post_yearly[2025][1] / post_yearly[2025][2] if post_yearly[2025][2] else 0
 _usage_decline_pct = (_2022_avg - _2025_avg) / _2022_avg if _2022_avg else 0
 
+# ---------------------------------------------------------------------------
+# Classification billing impact — generic (usage-based) vs client-specific (receipt-based)
+# ---------------------------------------------------------------------------
+# Under generic classification, billing should be:
+#   Original (Mar 2022 - Dec 2023): usage * vendor_rate * 1.05 (5% wastage, no margin)
+#   Amendment (Jan 2024+): usage * vendor_rate * 1.02 * 1.10 (2% wastage + 10% margin)
+# Actual practice: billed on receipt (purchases) as client-specific
+
+_generic_total = 0
+_generic_by_year = {}
+_actual_by_year = {}
+_unauthorized_margin_2023 = 0
+
+for _, r in post.iterrows():
+    yr = 2000 + int(r["Month"].split('-')[1])
+    purchased = safe(r["Envelopes Purchased"])
+    used = safe(r["Envelopes Used (Volume)"])
+    cost = safe(r["Purchase Cost"])
+    invoiced = safe(r["Invoiced Amount"])
+
+    if purchased > 0 and used > 0:
+        vendor_rate = cost / purchased
+        if yr <= 2023:
+            generic_bill = used * vendor_rate * 1.05  # original terms
+        else:
+            generic_bill = used * vendor_rate * 1.02 * 1.10  # amendment terms
+    else:
+        generic_bill = 0
+
+    _generic_by_year[yr] = _generic_by_year.get(yr, 0) + generic_bill
+    _actual_by_year[yr] = _actual_by_year.get(yr, 0) + invoiced
+    _generic_total += generic_bill
+
+_classification_overcharge = post_invoiced - _generic_total
+
+# 2023 unauthorized margin: original contract had no margin, but ~10% was applied
+_cost_2023 = sum(safe(r["Purchase Cost"]) for _, r in post[post["Month"].str.endswith("-23")].iterrows())
+_inv_2023 = sum(safe(r["Invoiced Amount"]) for _, r in post[post["Month"].str.endswith("-23")].iterrows())
+_unauthorized_margin_2023 = _inv_2023 - _cost_2023
+
 # Envelope type lookups — filtered to post-settlement
 post_type_mask = by_type_monthly["Month"].apply(lambda x: month_label_to_sortkey(x) >= settlement_key)
 by_type = by_type_monthly[post_type_mask].groupby("Envelope Type", as_index=False).agg({"Purchased": "sum"})
@@ -536,10 +576,51 @@ html += f'Section 8 requires Broadridge to be &ldquo;responsible for procuring a
 html += ''
 html += '        </div>\n'
 
+# Classification billing impact
+html += '        <div style="background:#F5F5F7;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:1px solid #E2E2E2;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 10px;">Billing impact  - generic vs. client-specific classification</p>\n'
+html += f'            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 10px;">Both contract versions state that generic stock is billed on <strong>usage</strong> and client-specific stock is billed on <strong>receipt</strong>. Apex envelopes have been billed on receipt (client-specific treatment). If classified as generic stock, billing on usage at the contractual rates would reduce total invoiced by <strong>{fmt_money(_classification_overcharge)}</strong>.</p>\n'
+
+# Year-by-year impact table
+html += '            <div class="table-wrap" style="margin:0 0 12px;"><table style="font-size:12px;">\n'
+html += '                <thead><tr><th>Year</th><th>Actual Invoiced</th><th>Generic (Usage-Based)</th><th>Difference</th></tr></thead>\n'
+html += '                <tbody>\n'
+for yr in sorted(_actual_by_year.keys()):
+    actual_yr = _actual_by_year[yr]
+    generic_yr = _generic_by_year[yr]
+    diff = actual_yr - generic_yr
+    dc = var_color(-diff)  # negative = overcharge, show red
+    yr_label = f"{yr} (Mar&ndash;Dec)" if yr == 2022 else str(yr)
+    html += f'                <tr><td>{yr_label}</td>'
+    html += f'<td class="num">{fmt_money(actual_yr)}</td>'
+    html += f'<td class="num">{fmt_money(generic_yr)}</td>'
+    html += f'<td class="num" style="color:{dc};font-weight:600">{fmt_money(diff)}</td></tr>\n'
+# Total row
+html += f'                <tr class="total-row"><td><strong>Total</strong></td>'
+html += f'<td class="num"><strong>{fmt_money(post_invoiced)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_money(_generic_total)}</strong></td>'
+tc = var_color(-_classification_overcharge)
+html += f'<td class="num" style="color:{tc};font-weight:700"><strong>{fmt_money(_classification_overcharge)}</strong></td></tr>\n'
+html += '                </tbody>\n'
+html += '            </table></div>\n'
+
+html += '            <p style="font-size:12px;line-height:1.7;color:#333;margin:0 0 8px;">The difference is driven by two factors:</p>\n'
+html += '            <table style="margin:0 0 8px;width:auto;background:transparent;font-size:12px;">\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;">Billing basis (receipt vs. usage)</td>'
+html += f'<td style="border:none;padding:4px 0;color:#333;font-weight:600;">Purchases exceeded usage by {fmt_num(post_purchased - post_used)} envelopes post-settlement. Under generic terms, only actual usage is billed.</td></tr>\n'
+html += f'                <tr><td style="border:none;padding:4px 16px 4px 0;color:#6D6E71;vertical-align:top;">2023 margin</td>'
+html += f'<td style="border:none;padding:4px 0;color:#333;font-weight:600;">Invoiced amounts in 2023 include a ~10% margin ({fmt_money(_unauthorized_margin_2023)}). The original contract (effective through Dec 2023) specifies materials &ldquo;at cost plus wastage&rdquo; with no margin component. The 10% margin was introduced by Amendment No. 1, effective January 2024.</td></tr>\n'
+html += '            </table>\n'
+
+html += '            <p style="font-size:11px;color:#6D6E71;margin:0;">&ldquo;Generic (Usage-Based)&rdquo; calculated as: usage &times; vendor unit cost &times; (1 + contractual wastage). Original period: 5% wastage, no margin. Amendment period: 2% wastage + 10% margin. Vendor unit cost = Purchase Cost &divide; Quantity Purchased from the same month&rsquo;s purchase report.</p>\n'
+html += '        </div>\n\n'
+
 # Confirmation questions
 html += '        <div style="background:#FFFFFF;border-radius:8px;padding:18px 22px;margin-bottom:16px;border:2px solid #052390;">\n'
 html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#052390;margin:0 0 12px;">Outstanding items for Broadridge confirmation</p>\n'
 html += '            <ol style="font-size:12px;line-height:1.8;color:#333;margin:0;padding-left:20px;">\n'
+html += '                <li><strong>Stock classification:</strong> Please confirm the contractual basis for classifying Apex envelopes as client-specific rather than generic stock. Per the specifications above, all Apex envelopes are standard double-window envelopes with no logos, branding, or custom design elements.</li>\n'
+html += '                <li><strong>2023 margin:</strong> Please explain the basis for the ~10% margin applied to envelope invoices throughout 2023. The original contract (effective through Dec 2023) specifies materials &ldquo;at cost plus wastage for generic stock&rdquo; with no margin component.</li>\n'
 html += '                <li><strong>Wastage rate applied:</strong> What wastage rate is currently being applied to envelope charges? The contract specifies 5% (original) / 2% (amendment) for generic envelope stock. Operational wastage has been confirmed at 10&ndash;15%  - please clarify whether the invoiced rate reflects the contractual rate or the operational rate, and provide supporting documentation.</li>\n'
 html += '                <li><strong>Inventory position:</strong> Please provide the current envelope inventory levels and confirm whether ordering volumes are being adjusted to reflect the decline in average monthly usage.</li>\n'
 html += '            </ol>\n'
@@ -630,10 +711,10 @@ html += '        </div>\n'
 
 # Contract summary table
 html += '        <div class="table-wrap" style="margin-bottom:24px;"><table>\n'
-html += '            <thead><tr><th>Period</th><th>Envelope Wastage</th><th>Margin</th><th>Effective Rate</th><th>Billing Basis (Contract)</th></tr></thead>\n'
+html += '            <thead><tr><th>Period</th><th>Envelope Wastage</th><th>Margin</th><th>Effective Rate</th><th>Billing Basis (Contract)</th><th>Actual Practice</th></tr></thead>\n'
 html += '            <tbody>\n'
-html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td> -</td><td>5.0% over vendor</td><td>Usage</td></tr>\n'
-html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage</td></tr>\n'
+html += '            <tr><td>Jan 2019 &ndash; Dec 2023</td><td>5%</td><td>&mdash;</td><td>5.0% over vendor</td><td>Usage (generic)</td><td>Receipt + ~10% margin applied in 2023</td></tr>\n'
+html += '            <tr><td>Jan 2024 &ndash; Dec 2028</td><td>2%</td><td>10%</td><td>12.2% over vendor</td><td>Usage (generic)</td><td>Receipt, 10% margin, no wastage</td></tr>\n'
 html += '            </tbody>\n'
 html += '        </table></div>\n'
 

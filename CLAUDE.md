@@ -92,9 +92,11 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 ### Key Findings
 - Usage declined 39% from 462,992/mo (2022) to 284,200/mo (2025)
 - Broadridge admits 10-15% operational wastage vs 2% contract limit for envelopes
-- Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based). Classification determines whether $192K billing difference is a discrepancy.
-- **Branding dispute (Mar 3):** Denci claims envelopes DO carry Apex branding; we say they don't. Sophia sent 7 envelope template PDFs from 2024 renegotiations as evidence and asked what branding specifically. Awaiting reply.
-- Under client-specific classification, 10% margin with no wastage surcharge is contractually correct
+- Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based).
+- **Classification dispute (Mar 9):** Denci gave four shifting answers, ultimately conceding "yes they are standard envelopes" (Mar 6 PM). Sophia sent email Mar 9 pinning concession to contract language, asking to confirm generic classification.
+- **Financial impact of misclassification: $225,870 (14.3%)** -- computed comparing actual invoiced (receipt-based) vs generic terms (usage-based). Added to Broadridge report but NOT yet cited in emails (strategic: establish principle first, bring dollars later).
+- **2023 unauthorized margin: $44,218** -- 10% markup applied all of 2023 before Amendment authorized it (Jan 2024). Separate issue from classification, not yet raised.
+- **CPI does not apply to materials** -- Amendment explicitly excludes materials from CPI adjustments. No CPI escalation found in envelope unit rates.
 - Post-settlement spoils: 55,733 of 18,469,949 = 0.30%
 - Data confidence: ~95% overall totals, ~75% per-SKU breakdown
 
@@ -106,18 +108,21 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ### Broadridge Report Structure
 1. Summary (intro + 4 KPIs + year-by-year with wastage & invoiced)
-2. Items for review (wastage observation + excess inventory + 2 confirmation items)
+2. Items for review (wastage observation + excess inventory + classification billing impact + 4 confirmation items)
 3. Purchases & usage by envelope type (4 groups + 9x12 footnote + NI/PFC context + 8 SKUs)
 4. Reference (data sources + contract quotes + contract summary + Koebel quotes + pre-settlement context + generic stock classification)
 
 ## Next Steps
 
-- [ ] **Awaiting Denci's reply** on branding claim — Sophia sent 7 envelope specs, asked when they went into production and what product they're for
-- [ ] Follow up on Edgewood materials audit timeline (Denci committed but no timeline yet)
+- [ ] **Awaiting Denci's reply** on generic classification confirmation (email sent Mar 9)
+- [ ] **Awaiting Edgewood audit completion date** -- asked three times (Mar 6 AM, Mar 6 PM, Mar 9), no answer
+- [ ] If Denci pushes back on classification: deploy Move 2 (financial impact $225,870 + 2023 margin $44,218 + his Aug 2023 "generic stock" email)
+- [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
 - [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
-- [ ] Obtain 3-5 vendor invoices to validate Receipt Amount composition
+- [ ] Obtain 3-5 vendor invoices (envelopes + paper) to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
-- [x] ~~Send reply to Denci re: classification~~ (done, 2026-03-02; he replied 2026-03-03 claiming branding; Sophia countered same day)
+- [x] ~~Send Mar 9 email pinning "standard envelopes" concession, asking to confirm generic classification~~
+- [x] ~~Update Broadridge report with classification billing impact section~~
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Reference Files
