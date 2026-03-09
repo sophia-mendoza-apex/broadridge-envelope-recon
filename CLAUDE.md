@@ -121,34 +121,39 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
-- [ ] **Reply to Denci's Mar 9 email** — address the die line sample, separate #10 LTR (single-window) from all other types (double-window)
-- [ ] **Confirm whether N10 LTR return address is vendor-preprinted or runtime-printed** — critical question for classification of that one SKU
-- [ ] **Demand volume split** between N10 LTR (letters) vs N10 CON (confirms) — confirms are provably double-window/generic
-- [ ] **Awaiting Edgewood audit completion date** — asked four times (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM), no answer
-- [ ] If Denci pushes back on classification: deploy Move 2 (financial impact $225,870 + 2023 margin $44,218 + his Aug 2023 "generic stock" email)
+- [ ] **Awaiting Denci's reply** to Mar 9 email — asked two key questions: (1) volume split N10 LTR vs N10 CON, (2) whether LTR return address is vendor-printed or runtime-printed
+- [ ] **Follow up on Edgewood audit timing** — asked four times (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM), no answer. Intentionally dropped from Mar 9 email (only been a week). Bring up later this week if no response.
+- [ ] If Denci pushes back on classification: deploy Move 2 (financial impact $192,372 + 2023 margin $44,218 + his Aug 2023 "generic stock" email)
 - [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
 - [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
 - [ ] Obtain 3-5 vendor invoices (envelopes + paper) to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
+- [x] ~~Reply to Denci's Mar 9 email~~ — sent Mar 9, separated N10 LTR (single-window) from 7 other types (double-window), asked for volume split and return address origin
 - [x] ~~Send Mar 9 email pinning "standard envelopes" concession, asking to confirm generic classification~~
 - [x] ~~Update Broadridge report with classification billing impact section~~
+- [x] ~~Update reports with product usage analysis, N10 LTR/CON split, purchase cadence~~
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Session Log
 
-### 2026-03-09 — Session 21 (Product Usage & Purchase Cadence Analysis)
+### 2026-03-09 — Session 21 (Product Usage, Purchase Cadence, Draft Reply)
 
 **Accomplished:**
-- **Deep dive into product-to-envelope mapping:** Identified that 3 products drive 94% of all envelope usage (Address Verification Letters 32.3%, Monthly Statements 31.8%, Apex MTC Confirms 29.7%)
-- **N10 LTR vs CON analysis:** Discovered that only 12,000 of 12,964,000 post-settlement N10 purchases (0.09%) are the single-window LTR variant Denci is using to argue client-specific classification
-- **Letters used CON envelopes historically:** For 4+ years (Jan 2020 – Apr 2024), all Address Verification Letters (8.5M) went into double-window confirm envelopes — the LTR variant didn't exist until May 2024
-- **Purchase cadence analysis:** N10 CON ordered every ~1 month at 188K/order despite usage declining from 300K/mo (2022) to 200K/mo (2025). Running surplus at +1.9M envelopes.
-- **Updated references/envelope-types.md** with product mapping, N10 LTR/CON split, purchase cadence, and corrected generic stock classification language
-- **Updated generate_html_report.py** — added product usage breakdown, N10 variant analysis, and purchase cadence sections to Executive Summary
-- **Updated generate_broadridge_report.py** — added product usage, N10 CON/LTR table, purchase cadence observation, and updated generic stock classification to reference die line specs
-- **Regenerated both HTML reports** successfully
+- **Deep dive into product-to-envelope mapping:** 3 products drive 94% of usage (Address Verification Letters 32.3%, Monthly Statements 31.8%, Apex MTC Confirms 29.7%)
+- **N10 LTR vs CON analysis:** Only 12,000 of 12,964,000 post-settlement N10 purchases (0.09%) are the single-window LTR variant
+- **Letters used CON envelopes historically:** For 4+ years (Jan 2020 – Apr 2024), all 8.5M Address Verification Letters went into double-window confirm envelopes — LTR didn't exist until May 2024
+- **Purchase cadence analysis:** N10 CON ordered every ~1 month at 188K/order despite usage dropping from 300K to 200K/mo. Running surplus at +1.9M envelopes.
+- **Updated reports:** Added product usage, N10 CON/LTR split, purchase cadence to both internal and Broadridge-facing HTML reports
+- **Updated references/envelope-types.md** with product mapping, N10 split, cadence data, corrected classification language
+- **Drafted and sent reply to Denci's Mar 9 email:** Separated N10 LTR (single-window, 0.09%) from 7 other types (double-window). Asked for volume split and whether return address is vendor-printed or runtime. Proposed type-by-type classification. Intentionally omitted Edgewood audit follow-up (only been a week) and financial impact numbers (strategic reserve).
 
-**Key Insight:** Denci's entire classification argument rests on an envelope variant that represents 0.09% of purchases. The product data proves that letters and confirms historically shared the same double-window envelope — the single-window LTR is essentially a pilot SKU.
+**Waiting on:** Denci's reply with (1) N10 LTR volume split, (2) return address origin, (3) response to type-by-type classification proposal.
+
+**Reserve ammunition (not yet deployed):**
+- Denci Aug 2023 email: called envelopes "generic stock — 5% for envelopes"
+- Classification financial impact: $192,372
+- 2023 unauthorized margin: $44,218
+- Edgewood audit follow-up (bring up later this week if no response)
 
 ### 2026-03-09 — Session 20 (Envelope Classification Deep Dive)
 
