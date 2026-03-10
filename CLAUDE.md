@@ -121,13 +121,14 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
-- [ ] **Awaiting Denci's reply** to Mar 9 email — asked two key questions: (1) volume split N10 LTR vs N10 CON, (2) whether LTR return address is vendor-printed or runtime-printed
-- [ ] **Follow up on Edgewood audit timing** — asked four times (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM), no answer. Intentionally dropped from Mar 9 email (only been a week). Bring up later this week if no response.
-- [ ] If Denci pushes back on classification: deploy Move 2 (financial impact $192,372 + 2023 margin $44,218 + his Aug 2023 "generic stock" email)
+- [ ] **Awaiting Terry/Fritz response** — forwarded Denci's Mar 10 reply with recommendation to switch to usage-based billing, pending their approval
+- [ ] **Finalize Edgewood audit** — need current inventory count before agreeing to any changes. Asked five times now (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM, Mar 10 in Denci's offer). Denci's offer to "finish off the stock" makes this critical.
+- [ ] **Denci offered to switch to usage-based billing** (Mar 10) — wants to burn through Apex-coded stock first. Need to negotiate: switch immediately or burn through existing?
 - [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
 - [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
 - [ ] Obtain 3-5 vendor invoices (envelopes + paper) to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
+- [x] ~~Forwarded Denci's Mar 10 reply to Terry/Fritz~~ — included $184K generic savings analysis, recommended usage-based switch pending audit. Did NOT include $44K margin issue (kept separate).
 - [x] ~~Reply to Denci's Mar 9 email~~ — sent Mar 9, separated N10 LTR (single-window) from 7 other types (double-window), asked for volume split and return address origin
 - [x] ~~Send Mar 9 email pinning "standard envelopes" concession, asking to confirm generic classification~~
 - [x] ~~Update Broadridge report with classification billing impact section~~
@@ -135,6 +136,22 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Session Log
+
+### 2026-03-10 — Session 22 (Denci Concession, Scenario Analysis, Internal Escalation)
+
+**Accomplished:**
+- **Analyzed Denci's Mar 10 reply:** 5th shifting answer on classification — now says "it doesn't matter what envelope we are using or what it looks like," argument is purely operational process. Offered to switch to usage-based billing going forward but wants to burn through Apex-coded stock first.
+- **New CCs:** Gary Stuart and Brian OToole added to thread by Denci
+- **Full scenario analysis:** Computed three scenarios (actual vs correct client-specific vs generic) across all post-settlement years
+  - Actual invoiced: $1,575,143
+  - Correct client-specific: $1,533,429 (overpaid $41,714 = 2023 unauthorized margin)
+  - Generic (usage-based): $1,349,273 (saves $184,156 / 12% vs correct client-specific)
+  - Generic includes 2% wastage surcharge — still cheaper because billing basis (usage vs receipt) dominates
+- **Confirmed generic is better in every year**, though 2023 only saved $8K because purchases and usage were nearly aligned
+- **Key insight:** Generic savings depend on over-purchasing gap. If Broadridge right-sizes ordering, the savings shrink — but that's a good outcome (less waste)
+- **Forwarded to Terry Ray and Fritz Louis-Charles** with $184K savings analysis, recommendation to take usage-based switch but finalize audit first. Did NOT include $44K margin issue — kept separate. Asked for approval: "Please let me know if you agree and I will move forward with the changes."
+
+**Waiting on:** Terry/Fritz approval to proceed with Denci's offer (with conditions)
 
 ### 2026-03-09 — Session 21 (Product Usage, Purchase Cadence, Draft Reply)
 
