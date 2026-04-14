@@ -740,6 +740,30 @@ _n10_confirm_vol = sum(safe(r["Total Envelopes Used"]) for _, r in usage_by_prod
 _n10_total_usage = _n10_letter_vol + _n10_confirm_vol
 
 # ---------------------------------------------------------------------------
+# Broadridge-provided data (Christopher Denci, Apr 14, 2026)
+# Period: Jan 1, 2024 - Mar 31, 2026
+# Production Usage = envelopes pulled from warehouse to production floor
+# Billed Qty = Brandon's monthly billing report data (same as our "Used")
+# ---------------------------------------------------------------------------
+BR_PROVIDED = [
+    {"wms": "ENVAPXN10PFSCONN10IND(10/22)", "desc": "N10 CON (PFC)", "inventory": 316000, "prod_usage": 5410004, "billed_qty": 5149334, "purchases": 5124000, "our_type": "ENVAPXN10 Confirms+Letters (PFC)"},
+    {"wms": "ENVCONPFSN10NI", "desc": "N10 CON (NI)", "inventory": 46000, "prod_usage": 431509, "billed_qty": 250880, "purchases": 672000, "our_type": "ENVCONPFSN10NI"},
+    {"wms": "ENVCONRIDGE9X12DW", "desc": "9x12 Flat Confirms", "inventory": 1000, "prod_usage": 16995, "billed_qty": 15427, "purchases": 10000, "our_type": "ENVCONRIDGE9X12DW"},
+    {"wms": "ENVMEAPEX9X12PFC", "desc": "9x12 Stmt (PFC)", "inventory": 40000, "prod_usage": 126369, "billed_qty": 166616, "purchases": 187500, "our_type": "ENVMEAPEX9X12PFC"},
+    {"wms": "ENVMERIDGE9X12NI11/08", "desc": "9x12 Stmt (NI)", "inventory": 5136, "prod_usage": 26650, "billed_qty": 6636, "purchases": 15000, "our_type": "ENVMERIDGE9X12NI11/08"},
+    {"wms": "ENVMEAPEXN14PFC", "desc": "N14 Stmt (PFC)", "inventory": 238700, "prod_usage": 3223734, "billed_qty": 2847827, "purchases": 2842000, "our_type": "ENVMEAPEXN14PFC"},
+    {"wms": "ENVMERIDGEN14NI11/08", "desc": "N14 Stmt (NI)", "inventory": 82200, "prod_usage": 245147, "billed_qty": 244050, "purchases": 240000, "our_type": "ENVMERIDGEN14NI11/08"},
+    {"wms": "ENVAPXN10APEXN10LTRPFC4/24", "desc": "N10 LTR (PFC)", "inventory": 6000, "prod_usage": 6000, "billed_qty": 4910, "purchases": 12000, "our_type": "ENVAPXN10LTRPFC"},
+]
+BR_TOTAL_INVENTORY = sum(d["inventory"] for d in BR_PROVIDED)
+BR_TOTAL_PROD = sum(d["prod_usage"] for d in BR_PROVIDED)
+BR_TOTAL_BILLED = sum(d["billed_qty"] for d in BR_PROVIDED)
+BR_TOTAL_PURCHASES = sum(d["purchases"] for d in BR_PROVIDED)
+BR_TOTAL_WASTAGE = BR_TOTAL_PROD - BR_TOTAL_BILLED
+BR_WASTAGE_PCT = BR_TOTAL_WASTAGE / BR_TOTAL_BILLED if BR_TOTAL_BILLED else 0
+BR_IMPLIED_START_INV = BR_TOTAL_INVENTORY + BR_TOTAL_PROD - BR_TOTAL_PURCHASES
+
+# ---------------------------------------------------------------------------
 # CSS
 # ---------------------------------------------------------------------------
 CSS = """*, *::before, *::after { box-sizing: border-box; }
@@ -1276,6 +1300,83 @@ html += '                <strong>Brandon Koebel (May 12, 2023):</strong> &ldquo;
 html += '            </div>\n'
 
 html += '            <p style="font-size:13px;line-height:1.7;margin:10px 0 0;"><strong>Impact:</strong> Broadridge purchased 3.6M NI envelopes post-settlement but only used 2.1M &mdash; purchasing continued at near pre-transition volumes despite domestic mail (~193K/mo) shifting to the PFC version, leaving only foreign mail (~8K/mo) on NI. This accounts for $82K of the excess inventory.</p>\n'
+html += '        </div>\n'
+
+html += '    </div>\n</div>\n\n'
+
+# ===== BROADRIDGE-PROVIDED DATA (Apr 2026) =====
+html += '<div class="section" id="broadridge-data">\n'
+html += '    <div class="section-header" onclick="toggleSection(this)">\n'
+html += '        <h2>Broadridge-provided data (Apr 2026)</h2>\n'
+html += '        <span class="toggle">&#9660;</span>\n'
+html += '    </div>\n'
+html += '    <div class="section-body">\n'
+html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 16px;">Source: Christopher Denci email, April 14, 2026. Period: Jan 1, 2024 &ndash; Mar 31, 2026. First time Broadridge has provided production usage and actual inventory counts.</p>\n'
+
+# KPI cards for Broadridge data
+html += '        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">\n'
+html += f'            <div style="flex:1 1 180px;background:#1E1F23;border-radius:12px;padding:18px 20px;min-width:170px;border:1px solid #2A2B30;">'
+html += f'<p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#9A9BA0;margin:0 0 6px;">Actual Wastage</p>'
+html += f'<p style="font-size:28px;font-weight:700;margin:0;color:#EF5350;">{BR_WASTAGE_PCT*100:.1f}%</p>'
+html += f'<p style="font-size:11px;color:#9A9BA0;margin:4px 0 0;">Contract cap: 2% (Amendment)</p></div>\n'
+html += f'            <div style="flex:1 1 180px;background:#1E1F23;border-radius:12px;padding:18px 20px;min-width:170px;border:1px solid #2A2B30;">'
+html += f'<p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#9A9BA0;margin:0 0 6px;">Envelopes Wasted</p>'
+html += f'<p style="font-size:28px;font-weight:700;margin:0;color:#EF5350;">{fmt_num(BR_TOTAL_WASTAGE)}</p>'
+html += f'<p style="font-size:11px;color:#9A9BA0;margin:4px 0 0;">Production pulls &minus; billed qty</p></div>\n'
+html += f'            <div style="flex:1 1 180px;background:#1E1F23;border-radius:12px;padding:18px 20px;min-width:170px;border:1px solid #2A2B30;">'
+html += f'<p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#9A9BA0;margin:0 0 6px;">Current Inventory</p>'
+html += f'<p style="font-size:28px;font-weight:700;margin:0;color:#5B9BF7;">{fmt_num(BR_TOTAL_INVENTORY)}</p>'
+_br_buffer = BR_TOTAL_INVENTORY / (BR_TOTAL_BILLED / 27) if BR_TOTAL_BILLED else 0
+html += f'<p style="font-size:11px;color:#9A9BA0;margin:4px 0 0;">~{_br_buffer:.1f} months at current usage</p></div>\n'
+html += f'            <div style="flex:1 1 180px;background:#1E1F23;border-radius:12px;padding:18px 20px;min-width:170px;border:1px solid #2A2B30;">'
+html += f'<p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#9A9BA0;margin:0 0 6px;">Implied Start Inv (Jan 2024)</p>'
+html += f'<p style="font-size:28px;font-weight:700;margin:0;color:#82B4FF;">{fmt_num(BR_IMPLIED_START_INV)}</p>'
+html += f'<p style="font-size:11px;color:#9A9BA0;margin:4px 0 0;">Ending + prod usage &minus; purchases</p></div>\n'
+html += '        </div>\n'
+
+# Production usage vs billed qty table
+html += '        <h3 style="color:#82B4FF;font-size:16px;margin:0 0 12px;">Production usage vs. billed quantity (wastage analysis)</h3>\n'
+html += '        <p style="font-size:13px;color:#9A9BA0;margin:0 0 12px;">Production Usage = envelopes pulled from warehouse to the production floor. Billed Qty = volume reported in Brandon&rsquo;s monthly billing workbooks (same as our &ldquo;Used&rdquo; metric). The gap is operational wastage.</p>\n'
+html += '        <div class="table-wrap"><table>\n'
+html += '            <thead><tr><th>Envelope</th><th>Production Usage</th><th>Billed Qty</th><th>Wastage</th><th>Wastage %</th><th>Inventory (3/31)</th><th>Buffer Mo.</th></tr></thead>\n'
+html += '            <tbody>\n'
+for d in BR_PROVIDED:
+    w = d["prod_usage"] - d["billed_qty"]
+    wpct = w / d["billed_qty"] * 100 if d["billed_qty"] else 0
+    wcolor = "#EF5350" if wpct > 10 else ("#FFA726" if wpct > 2 else "#4CAF79")
+    if wpct < 0:
+        wcolor = "#CE93D8"
+    mo_usage = d["billed_qty"] / 27
+    buf = d["inventory"] / mo_usage if mo_usage > 0 else 0
+    buf_color = "#EF5350" if buf > 6 else ("#FFA726" if buf > 3 else "#4CAF79")
+    html += f'            <tr><td class="env-name" style="font-weight:600;">{d["desc"]}</td>'
+    html += f'<td class="num">{fmt_num(d["prod_usage"])}</td>'
+    html += f'<td class="num">{fmt_num(d["billed_qty"])}</td>'
+    html += f'<td class="num" style="color:{wcolor};font-weight:600;">{fmt_num(w)}</td>'
+    html += f'<td class="num" style="color:{wcolor};font-weight:600;">{wpct:.1f}%</td>'
+    html += f'<td class="num">{fmt_num(d["inventory"])}</td>'
+    html += f'<td class="num" style="color:{buf_color};">{buf:.1f}</td></tr>\n'
+# Total row
+html += f'            <tr class="total-row"><td><strong>Total</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(BR_TOTAL_PROD)}</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(BR_TOTAL_BILLED)}</strong></td>'
+html += f'<td class="num" style="color:#EF5350;font-weight:700;"><strong>{fmt_num(BR_TOTAL_WASTAGE)}</strong></td>'
+html += f'<td class="num" style="color:#EF5350;font-weight:700;"><strong>{BR_WASTAGE_PCT*100:.1f}%</strong></td>'
+html += f'<td class="num"><strong>{fmt_num(BR_TOTAL_INVENTORY)}</strong></td>'
+html += f'<td class="num"><strong>{_br_buffer:.1f}</strong></td></tr>\n'
+html += '            </tbody>\n'
+html += '        </table></div>\n'
+
+# Key findings
+html += '        <div style="background:#1E1F23;border-radius:12px;padding:18px 22px;margin-top:16px;border:1px solid #2A2B30;">\n'
+html += '            <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#82B4FF;margin:0 0 10px;">Key findings</p>\n'
+html += '            <ul style="font-size:13px;line-height:1.8;color:#E0E1E6;margin:0;padding-left:20px;">\n'
+html += f'                <li><strong style="color:#EF5350;">Actual wastage is {BR_WASTAGE_PCT*100:.1f}%</strong> &mdash; 4.6&times; the 2% contractual cap. {fmt_num(BR_TOTAL_WASTAGE)} envelopes pulled from warehouse but never successfully mailed over 27 months.</li>\n'
+html += f'                <li><strong>NI variants show extreme wastage</strong> &mdash; N10 NI at 72%, 9x12 NI at 302%. This likely indicates NI envelopes are shared generic stock pulled for multiple clients, with only Apex volumes appearing in &ldquo;Billed Qty.&rdquo;</li>\n'
+html += f'                <li><strong style="color:#CE93D8;">9x12 Stmt PFC shows negative wastage (-24%)</strong> &mdash; more was billed than pulled from warehouse. Possible billing discrepancy or timing mismatch.</li>\n'
+html += f'                <li><strong>Starting inventory was ~1.1M envelopes</strong> on Jan 1, 2024 &mdash; the cumulative result of 2022&ndash;2023 over-purchasing. Drawn down to {fmt_num(BR_TOTAL_INVENTORY)} through operational waste.</li>\n'
+html += f'                <li><strong>Current inventory ({fmt_num(BR_TOTAL_INVENTORY)}) = ~{_br_buffer:.1f} months</strong> &mdash; within the 2&ndash;3 month policy at the blended level, but individual SKUs vary from 1.7 to 33 months.</li>\n'
+html += '            </ul>\n'
 html += '        </div>\n'
 
 html += '    </div>\n</div>\n\n'

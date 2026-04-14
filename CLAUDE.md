@@ -121,89 +121,28 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Next Steps
 
+- [ ] **Apr 15 meeting with Denci** — walk through production data, confirm wastage on record, ask about NI variant shared stock and 9x12 PFC negative delta
 - [ ] **Awaiting Terry/Fritz response** — forwarded Denci's Mar 10 reply with recommendation to switch to usage-based billing, pending their approval
-- [ ] **Finalize Edgewood audit** — need current inventory count before agreeing to any changes. Asked five times now (Mar 6 AM, Mar 6 PM, Mar 9 AM, Mar 9 PM, Mar 10 in Denci's offer). Denci's offer to "finish off the stock" makes this critical.
-- [ ] **Denci offered to switch to usage-based billing** (Mar 10) — wants to burn through Apex-coded stock first. Need to negotiate: switch immediately or burn through existing?
+- [ ] **Confirm inventory is all-location** — Denci provided 735,036 total (3/31/2026). Verify includes Edgewood, South Windsor, Coppell, etc.
+- [ ] **Usage-based switch negotiation** — Denci wants to burn through 735K Apex-coded stock first (~2.3 months). Q1 2026 data shows drawdown already underway.
 - [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
-- [ ] Confirm 2026 ordering adjusted for usage decline (unanswered)
 - [ ] Obtain 3-5 vendor invoices (envelopes + paper) to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
-- [x] ~~Forwarded Denci's Mar 10 reply to Terry/Fritz~~ — included $184K generic savings analysis, recommended usage-based switch pending audit. Did NOT include $44K margin issue (kept separate).
-- [x] ~~Reply to Denci's Mar 9 email~~ — sent Mar 9, separated N10 LTR (single-window) from 7 other types (double-window), asked for volume split and return address origin
-- [x] ~~Send Mar 9 email pinning "standard envelopes" concession, asking to confirm generic classification~~
-- [x] ~~Update Broadridge report with classification billing impact section~~
-- [x] ~~Update reports with product usage analysis, N10 LTR/CON split, purchase cadence~~
-- [x] ~~Send Broadridge report to Broadridge contacts for data validation~~ (done, 2026-03-02)
 
 ## Session Log
 
-### 2026-03-10 — Session 22 (Denci Concession, Scenario Analysis, Internal Escalation)
+### Latest — Session 23 (2026-04-14)
 
-**Accomplished:**
-- **Analyzed Denci's Mar 10 reply:** 5th shifting answer on classification — now says "it doesn't matter what envelope we are using or what it looks like," argument is purely operational process. Offered to switch to usage-based billing going forward but wants to burn through Apex-coded stock first.
-- **New CCs:** Gary Stuart and Brian OToole added to thread by Denci
-- **Full scenario analysis:** Computed three scenarios (actual vs correct client-specific vs generic) across all post-settlement years
-  - Actual invoiced: $1,575,143
-  - Correct client-specific: $1,533,429 (overpaid $41,714 = 2023 unauthorized margin)
-  - Generic (usage-based): $1,349,273 (saves $184,156 / 12% vs correct client-specific)
-  - Generic includes 2% wastage surcharge — still cheaper because billing basis (usage vs receipt) dominates
-- **Confirmed generic is better in every year**, though 2023 only saved $8K because purchases and usage were nearly aligned
-- **Key insight:** Generic savings depend on over-purchasing gap. If Broadridge right-sizes ordering, the savings shrink — but that's a good outcome (less waste)
-- **Forwarded to Terry Ray and Fritz Louis-Charles** with $184K savings analysis, recommendation to take usage-based switch but finalize audit first. Did NOT include $44K margin issue — kept separate. Asked for approval: "Please let me know if you agree and I will move forward with the changes."
+**Analyzed Denci's Apr 14 production data, cross-referenced all 8 SKUs, prepared Apr 15 meeting talking points.**
 
-**Waiting on:** Terry/Fritz approval to proceed with Denci's offer (with conditions)
+- Production usage confirms 9.2% actual wastage vs 2% contract cap (4.6x). 800,728 envelopes wasted.
+- First inventory counts: 735,036 total (~2.3 months buffer). Implied 1.1M starting inventory Jan 2024.
+- NI variants at 72-302% wastage — likely shared generic stock (supports classification argument).
+- Denci's Jan 2024 start date excludes 2022-2023 over-purchasing — strategic framing, does NOT weaken our position.
+- Q1 2026 shows inventory drawdown already underway — Broadridge may be creating facts on the ground.
+- Meeting prep saved to `Meeting Prep - April 15 2026.md`. Reserve ammunition still held back.
 
-### 2026-03-09 — Session 21 (Product Usage, Purchase Cadence, Draft Reply)
-
-**Accomplished:**
-- **Deep dive into product-to-envelope mapping:** 3 products drive 94% of usage (Address Verification Letters 32.3%, Monthly Statements 31.8%, Apex MTC Confirms 29.7%)
-- **N10 LTR vs CON analysis:** Only 12,000 of 12,964,000 post-settlement N10 purchases (0.09%) are the single-window LTR variant
-- **Letters used CON envelopes historically:** For 4+ years (Jan 2020 – Apr 2024), all 8.5M Address Verification Letters went into double-window confirm envelopes — LTR didn't exist until May 2024
-- **Purchase cadence analysis:** N10 CON ordered every ~1 month at 188K/order despite usage dropping from 300K to 200K/mo. Running surplus at +1.9M envelopes.
-- **Updated reports:** Added product usage, N10 CON/LTR split, purchase cadence to both internal and Broadridge-facing HTML reports
-- **Updated references/envelope-types.md** with product mapping, N10 split, cadence data, corrected classification language
-- **Drafted and sent reply to Denci's Mar 9 email:** Separated N10 LTR (single-window, 0.09%) from 7 other types (double-window). Asked for volume split and whether return address is vendor-printed or runtime. Proposed type-by-type classification. Intentionally omitted Edgewood audit follow-up (only been a week) and financial impact numbers (strategic reserve).
-
-**Waiting on:** Denci's reply with (1) N10 LTR volume split, (2) return address origin, (3) response to type-by-type classification proposal.
-
-**Reserve ammunition (not yet deployed):**
-- Denci Aug 2023 email: called envelopes "generic stock — 5% for envelopes"
-- Classification financial impact: $192,372
-- 2023 unauthorized margin: $44,218
-- Edgewood audit follow-up (bring up later this week if no response)
-
-### 2026-03-09 — Session 20 (Envelope Classification Deep Dive)
-
-**Accomplished:**
-- **Analyzed Denci's Mar 9 reply** — two new arguments: (1) Apex code printed on envelopes, (2) operational machine setup procedure
-- **Analyzed both envelope samples Denci sent:**
-  - Die line (N10 LTR PFC 4/24): single-window, postage indicia "PAID APEX", NO return address on die line
-  - Mar 3 finished piece: single-window with "Apex Clearing Corporation, PO BOX 9007" return address
-- **Searched Outlook (Graph API)** for prior correspondence about envelope types, classification, and purchase history
-- **Discovered critical distinction: CONFIRM vs LETTER envelopes**
-  - All 7 existing spec files (from `Products and Envelope Samples` folder) show DOUBLE-WINDOW construction — return address shows through window from document, nothing client-specific on envelope
-  - N10 LTR PFC (4/24) is a separate LETTER variant with SINGLE-WINDOW — return address either pre-printed or runtime-printed
-- **Found Koebel Aug 2025 emails** confirming generic NI envelopes purchased and sprayed with indicia, then relabeled as APX SKUs
-- **Found Koebel Apr 24, 2025 email** about IMB barcode truncation in envelope window — planning new revision (4/25) with expanded window, treats as routine operational update, no mention of client-specific classification
-- **Found Denci Aug 17, 2023 email** where he described envelope pricing as "cost plus wastage for generic stock — specifically for envelopes that is 5%" — directly contradicts his Mar 2026 client-specific position
-- **Corrected email-analysis.md** — Aug 2023 email was FROM Denci (not Terry Ray), making the generic stock characterization even more significant
-- **Strategic assessment:** Even if N10 LTR is legitimately client-specific (pre-printed return address), 7 of 8 envelope types are provably generic based on manufacturer die lines. Best approach: concede LTR if needed, force reclassification on everything else.
-
-**Key Evidence Catalog:**
-| Evidence | Source | Impact |
-|---|---|---|
-| 7 envelope die lines — all double-window, no client info | `Products and Envelope Samples` folder | Proves generic for confirms/statements |
-| N10 LTR die line — no return address shown | Denci Mar 9 attachment | Suggests return address is runtime-printed |
-| Denci Aug 2023: "generic stock — 5% for envelopes" | Outlook search | Contradicts his Mar 2026 position |
-| Koebel Aug 2025: NI envelopes sprayed and relabeled | Outlook search | Shows "APX" codes are internal labels |
-| Koebel Apr 2025: window expansion = routine update | Outlook search | Treats envelope changes as operational |
-| Denci Feb 2026: envelopes = "paper, boxes, etc." | Outlook search | Treats envelopes as materials |
-| Koebel Nov 2024: "3 months inventory" target | Outlook search | Generic stock management practice |
-
-**Open Question:**
-- Is the N10 LTR return address vendor-preprinted or runtime-printed? This determines classification for that one SKU only. All other types are provably generic regardless.
-
-**Confidence Assessment:** 75-80% overall. Strong on 7 of 8 envelope types. The N10 LTR is the only one with ambiguity.
+Full session history (Sessions 1-23): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 

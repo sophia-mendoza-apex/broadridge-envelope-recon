@@ -15,6 +15,7 @@
 | Kimberly Rookwood | GTO Relationship | Initial contact routing |
 | Lynnette Kappler | GTO AR | Outstanding invoices |
 | Gary Stuart | GTO AR | Aged A/R |
+| Cameron Canter | (unknown, added Apr 2026) | Added to envelope recon thread by Denci |
 | Woodie Cheu | (unknown) | Outstanding items |
 
 ## Key Operational Facts from Brandon Koebel

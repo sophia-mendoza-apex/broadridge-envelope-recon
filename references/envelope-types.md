@@ -95,6 +95,44 @@ Purchase cadence has not adjusted for the 39% usage decline (462K/mo in 2022 to 
 
 **Exception:** ENVAPXN10APEXN10LTRPFC4/24 (N10 LTR) is single-window. Return address origin (vendor-preprinted vs runtime-printed) is unconfirmed. This SKU represents 0.09% of N10 purchases and does not affect the classification argument for the other 99.9%.
 
+## Broadridge-Provided Inventory (as of 3/31/2026)
+
+Source: Christopher Denci email, April 14, 2026.
+
+| WMS Code | Inventory | Monthly Usage (avg) | Buffer Months |
+|----------|----------:|-------------------:|--------------:|
+| ENVAPXN10PFSCONN10IND(10/22) | 316,000 | 190,716 | 1.7 |
+| ENVCONPFSN10NI | 46,000 | 9,292 | 5.0 |
+| ENVCONRIDGE9X12DW | 1,000 | 571 | 1.8 |
+| ENVMEAPEX9X12PFC | 40,000 | 6,171 | 6.5 |
+| ENVMERIDGE9X12NI11/08 | 5,136 | 246 | 20.9 |
+| ENVMEAPEXN14PFC | 238,700 | 105,475 | 2.3 |
+| ENVMERIDGEN14NI11/08 | 82,200 | 9,039 | 9.1 |
+| ENVAPXN10APEXN10LTRPFC4/24 | 6,000 | 182 | 33.0 |
+| **TOTAL** | **735,036** | **321,691** | **2.3** |
+
+Implied starting inventory (Jan 1, 2024): 1,118,944 envelopes.
+
+## Broadridge-Confirmed Production Wastage (Jan 2024 - Mar 2026)
+
+Actual production wastage = envelopes pulled from warehouse minus billed quantity.
+
+| WMS Code | Prod Usage | Billed Qty | Wastage | Wastage % |
+|----------|----------:|-----------:|--------:|----------:|
+| N10 CON PFC | 5,410,004 | 5,149,334 | 260,670 | 5.1% |
+| N10 NI | 431,509 | 250,880 | 180,629 | 72.0% |
+| 9x12 DW | 16,995 | 15,427 | 1,568 | 10.2% |
+| 9x12 Stmt PFC | 126,369 | 166,616 | -40,247 | -24.2% |
+| 9x12 NI | 26,650 | 6,636 | 20,014 | 301.7% |
+| N14 PFC | 3,223,734 | 2,847,827 | 375,907 | 13.2% |
+| N14 NI | 245,147 | 244,050 | 1,097 | 0.4% |
+| N10 LTR | 6,000 | 4,910 | 1,090 | 22.2% |
+| **TOTAL** | **9,486,408** | **8,685,680** | **800,728** | **9.2%** |
+
+Contract cap: 2% for envelopes (Amendment No. 1). Actual: 9.2% = 4.6x the cap.
+
+NI variants (72-302% wastage) likely indicate shared generic stock across clients.
+
 ## Envelope Spec Source Files
 
 | File | Order # | WMS Code |
