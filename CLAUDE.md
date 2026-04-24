@@ -131,18 +131,17 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Session Log
 
-### Latest — Session 23 (2026-04-14)
+### Latest — Session 24 (2026-04-24)
 
-**Analyzed Denci's Apr 14 production data, cross-referenced all 8 SKUs, prepared Apr 15 meeting talking points.**
+**Date range audit, CPI update to Mar 2026, Q1 2026 data investigation.**
 
-- Production usage confirms 9.2% actual wastage vs 2% contract cap (4.6x). 800,728 envelopes wasted.
-- First inventory counts: 735,036 total (~2.3 months buffer). Implied 1.1M starting inventory Jan 2024.
-- NI variants at 72-302% wastage — likely shared generic stock (supports classification argument).
-- Denci's Jan 2024 start date excludes 2022-2023 over-purchasing — strategic framing, does NOT weaken our position.
-- Q1 2026 shows inventory drawdown already underway — Broadridge may be creating facts on the ground.
-- Meeting prep saved to `Meeting Prep - April 15 2026.md`. Reserve ammunition still held back.
+- Fixed 4 date inconsistencies across both HTML reports (all now "Mar 2022 - Mar 2026")
+- CPI finding updated: $4,011 → $4,256 (found Mar 2026 Rebranding invoice). Combined: $193,949.
+- D17 SQL only goes through Oct 2025 — Q1 2026 envelope charges not yet in database
+- Q1 2026 incorporation in progress: need usage counts + Jan/Feb purchase quantities
+- contract-terms.md updated with corrected $189,694 classification impact breakdown
 
-Full session history (Sessions 1-23): `references/session-log.md` + `~/.claude/references/session-history.md`
+Full session history (Sessions 1-24): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 
