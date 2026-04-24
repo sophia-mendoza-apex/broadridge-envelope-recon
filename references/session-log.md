@@ -134,7 +134,7 @@ Complete session-by-session history of the Broadridge Envelope Reconciliation pr
 ## Session 16 - 2026-02-24
 
 **Accomplished:**
-- Billing basis discrepancy analysis: contract says usage-based, actual is receipt-based ($192,372 excess)
+- Billing basis discrepancy analysis: contract says usage-based, actual is receipt-based ($225,870 excess — updated from $192K with per-month contract formula)
 - Aligned Broadridge report with internal (wastage-adjusted variance)
 - Security review of Broadridge report (5 items identified)
 - Removed 4 of 5 security-reviewed risk items per user decision

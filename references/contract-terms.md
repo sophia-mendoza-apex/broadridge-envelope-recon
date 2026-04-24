@@ -59,10 +59,14 @@ Both original contract (Section 4) and Amendment No. 1 state:
 | Metric | Value |
 |--------|-------|
 | Actual invoiced (receipt-based) | $1,575,143 |
-| If billed on usage (generic terms) | $1,382,771 |
-| Difference | **$192,372** |
+| If billed on usage (generic terms) | $1,385,450 |
+| Classification impact | **$145,476** |
+| 2023 unauthorized margin (separate) | **$44,218** |
+| Combined rectification | **$189,694** |
 
-Note: This $192K figure is only a discrepancy if the envelopes should be classified as generic. Under client-specific classification, receipt-based billing is contractually correct.
+Note: Computed per-month using each period's blended vendor rate with contractual wastage (5% pre-2024, 2% post-2024) and margin (10% post-2024 per Amendment No. 1). The classification impact is only a discrepancy if envelopes are reclassified as generic. The 2023 margin overcharge exists regardless of classification.
+
+Previously reported as $225,870 (Apr 2026 computation); updated to $189,694 after source data refresh corrected 2025 purchase records. Year-by-year: 2022=$71,635, 2023=$52,664, 2024=$16,332, 2025=$49,063. Per-SKU methodology yields a more conservative $129,159 total.
 
 ## Wastage Discrepancy
 

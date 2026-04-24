@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print & Mail Billing Rectification Summary - Internal</title>
+<style>*, *::before, *::after { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px; line-height: 1.5; color: #333; background: #FFFFFF;
+}
+.header {
+    background: linear-gradient(135deg, #052390, #1A3A8F);
+    color: #FFFFFF; padding: 40px 40px 32px;
+}
+.header h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.header .subtitle { font-size: 14px; opacity: 0.85; margin: 0 0 4px; }
+.header .meta { font-size: 12px; opacity: 0.65; margin: 0; }
+.content { max-width: 1100px; margin: 0 auto; padding: 28px 40px 40px; }
+.section { margin-bottom: 32px; page-break-inside: avoid; }
+.section h2 {
+    margin: 0 0 14px; font-size: 18px; font-weight: 600; color: #052390;
+    border-bottom: 2px solid #052390; padding-bottom: 6px;
+}
+h3 { color: #052390; font-size: 14px; margin: 20px 0 10px; font-weight: 600; }
+p { margin: 0 0 10px; }
+blockquote {
+    margin: 10px 0; padding: 10px 14px;
+    background: #FFFFFF; border-left: 3px solid #052390;
+    border-radius: 0 4px 4px 0; font-size: 12px; line-height: 1.7; color: #333;
+}
+.kpi-grid { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
+.kpi-card {
+    flex: 1 1 180px; background: #F5F5F7; border-radius: 8px; padding: 18px 20px;
+    border: 1px solid #E2E2E2; min-width: 170px;
+}
+.kpi-card .kpi-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #6D6E71; margin: 0 0 6px;
+}
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; margin: 0; line-height: 1.2; }
+.kpi-card .kpi-sub { font-size: 11px; color: #6D6E71; margin: 4px 0 0; }
+.table-wrap { border-radius: 4px; border: 1px solid #E2E2E2; overflow: hidden; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; background: #FFFFFF; }
+table th {
+    background: #052390; color: #FFFFFF; padding: 8px 12px; text-align: left;
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+table th.num { text-align: right; }
+table td { padding: 6px 12px; border-bottom: 1px solid #E2E2E2; white-space: nowrap; color: #333; }
+table .num { text-align: right; font-variant-numeric: tabular-nums; }
+table tbody tr:nth-child(even) { background: #FAFAFA; }
+.total-row { background: #E8E8ED !important; border-top: 2px solid #D0D0D8; }
+.callout {
+    background: #F5F5F7; border-radius: 8px; padding: 18px 22px;
+    border: 1px solid #E2E2E2; margin-bottom: 16px;
+}
+.callout-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.4px; color: #052390; margin: 0 0 10px;
+}
+.footer {
+    text-align: center; padding: 24px 40px; font-size: 11px;
+    color: #6D6E71; border-top: 1px solid #E2E2E2;
+}
+.green { color: #186741; } .red { color: #9D1526; } .amber { color: #B8860B; }
+.muted { color: #6D6E71; }
+@media print {
+    .header { padding: 28px 0 20px; }
+    .content { padding: 16px 0 20px; }
+    .kpi-card { box-shadow: none; }
+    .table-wrap { box-shadow: none; border: 1px solid #CCC; page-break-inside: avoid; }
+    blockquote, .kpi-grid, h3 { page-break-inside: avoid; }
+    h3 { page-break-after: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <h1>Print &amp; mail billing rectification summary</h1>
+      <p class="subtitle">Post-settlement scope: March 2022 &ndash; March 2026</p>
+      <p class="meta">Generated April 24, 2026</p>
+    </div>
+    <div style="background:rgba(255,255,255,0.2);border:2px solid #FFFFFF;border-radius:6px;padding:8px 18px;text-align:center;margin-top:4px;">
+      <p style="margin:0;font-size:13px;font-weight:700;color:#FFFFFF;letter-spacing:0.5px;">INTERNAL USE ONLY</p>
+    </div>
+  </div>
+</div>
+<div class="content">
+<div style="background:#FDE8E8;border:1px solid #9D1526;border-radius:6px;padding:10px 18px;margin-bottom:24px;text-align:center;">
+  <p style="margin:0;font-size:12px;color:#9D1526;font-weight:600;">FOR INTERNAL APEX USE ONLY</p>
+</div>
+<div class="section">
+  <div class="kpi-grid">
+    <div class="kpi-card"><p class="kpi-label">Wrong wastage rate (2023)</p><p class="kpi-value red">$20,877</p><p class="kpi-sub">Charged 10% (paper rate) instead of 5% (envelope rate)</p></div>
+    <div class="kpi-card"><p class="kpi-label">Wrong billing basis (2022&ndash;2025)</p><p class="kpi-value red">$168,816</p><p class="kpi-sub">Billed on purchases instead of usage</p></div>
+    <div class="kpi-card"><p class="kpi-label">CPI applied to materials</p><p class="kpi-value red">$4,256</p><p class="kpi-sub">Paper rate inflated by CPI (Jan 2025+)</p></div>
+    <div class="kpi-card"><p class="kpi-label">Total overcharge</p><p class="kpi-value" style="color:#9D1526;font-weight:800">$193,949</p><p class="kpi-sub">Broadridge offer: $57K (Jan 2024 only)</p></div>
+  </div>
+</div>
+<div class="section">
+  <h2>Background</h2>
+  <p>Broadridge has been billing our envelopes as &ldquo;client-specific&rdquo; stock, which means we pay based on what they <strong>purchase</strong> from the supplier rather than what they actually <strong>use</strong> to mail our jobs. We first raised this in <strong>June 2023</strong> and were told our envelopes were &ldquo;Apex specific.&rdquo; They are not &mdash; they are standard, unbranded, double-window envelopes with no custom printing.</p>
+  <p>After months of back and forth, Denci acknowledged in March 2026 that &ldquo;yes they are standard envelopes&rdquo; but maintained the classification is based on how they handle them operationally, not what the envelope actually is. The contract makes no such distinction.</p>
+</div>
+<div class="section">
+  <h2>Finding 1: Wrong wastage rate in 2023</h2>
+  <p>The contract has two wastage rates: 10% for paper, 5% for envelopes. Throughout 2023, Broadridge charged the 10% paper rate on envelopes. Overcharge: <strong class="red">$20,877</strong>. This is a straightforward contract error independent of the classification issue.</p>
+</div>
+<div class="section">
+  <h2>Finding 2: Billing on purchases instead of usage</h2>
+  <p>The contract says generic stock is billed on <strong>usage</strong> and client-specific on <strong>receipt</strong>. Because Broadridge classifies our envelopes as client-specific, we pay for every envelope they order from the supplier &mdash; including 2,569,551 envelopes purchased but never used. Broadridge's own production data shows <strong class="red">9.2%</strong> wastage vs a 2% contract cap, confirming they routinely over-order.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Year</th><th class="num">Invoiced (receipt)</th><th class="num">Correct (usage)</th><th class="num">Overcharge</th></tr></thead>
+    <tbody>
+      <tr><td>2022 (Mar&ndash;Dec)</td><td class="num">$393,552</td><td class="num">$321,917</td><td class="num red">$71,635</td></tr>
+      <tr><td>2023</td><td class="num">$490,141</td><td class="num">$458,355</td><td class="num red">$31,786</td></tr>
+      <tr><td>2024</td><td class="num">$361,523</td><td class="num">$345,192</td><td class="num red">$16,332</td></tr>
+      <tr><td>2025</td><td class="num">$309,049</td><td class="num">$259,986</td><td class="num red">$49,063</td></tr>
+      <tr class="total-row"><td><strong>Total</strong></td><td class="num"><strong>$1,554,265</strong></td><td class="num"><strong>$1,385,450</strong></td><td class="num red"><strong>$168,816</strong></td></tr>
+    </tbody>
+  </table></div>
+</div>
+<div class="section">
+  <h2>Finding 3: CPI applied to materials</h2>
+  <p>The Amendment states &ldquo;fees (<strong>other than materials</strong>) may be adjusted by CPI.&rdquo; Paper is a material. Starting January 2025, Broadridge applied CPI to the paper per-page rate: charged $0.0112/page instead of $0.0109/page. The math confirms it: $0.0109 &times; 1.0289 (CPI) = $0.0112 exactly. Overcharge: <strong class="red">$4,256</strong> across 15 months (12,475,407 pages).</p>
+</div>
+<div class="section">
+  <h2>Their offer vs our position</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th>Broadridge offer</th><th>Our position</th></tr></thead>
+    <tbody>
+      <tr><td>Period</td><td>Jan 2024 &ndash; Mar 2026</td><td>Mar 2022 &ndash; Mar 2026 (full post-settlement)</td></tr>
+      <tr><td>Methodology</td><td>Production wastage &times; avg cost</td><td>Billing basis correction + rate errors + CPI</td></tr>
+      <tr><td>What it covers</td><td>Envelopes pulled from warehouse but not mailed</td><td>Difference between receipt-based and usage-based billing</td></tr>
+      <tr><td>What it misses</td><td>Over-ordering, 2022&ndash;2023, rate errors, CPI</td><td>&mdash;</td></tr>
+      <tr class="total-row"><td><strong>Credit amount</strong></td><td><strong>$57,000</strong></td><td class="red"><strong>$193,949</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <p class="callout-title">How Broadridge calculated $57K</p>
+    <p>Denci provided production data (Jan 2024 &ndash; Mar 2026) showing envelopes pulled from warehouse (&ldquo;Production Usage&rdquo;) vs envelopes billed to Apex (&ldquo;Billed Qty&rdquo;). His credit = the wastage gap &times; average cost per envelope:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Column</th><th>Denci&rsquo;s term</th><th class="num">Total</th><th>Our equivalent</th></tr></thead>
+      <tbody>
+        <tr><td>A</td><td>Purchases</td><td class="num">9,102,500</td><td>Purchased (invoice data)</td></tr>
+        <tr><td>B</td><td>Production Usage</td><td class="num">9,486,408</td><td>Pulled from warehouse to floor</td></tr>
+        <tr><td>C</td><td>Billed Qty</td><td class="num">8,685,680</td><td>Used (billing reports)</td></tr>
+        <tr><td>B&minus;C</td><td><strong>Wastage (his credit)</strong></td><td class="num"><strong>800,728</strong></td><td>Production waste only</td></tr>
+        <tr><td>A&minus;C</td><td><em>Not credited</em></td><td class="num" style="color:#9D1526"><strong>416,820</strong></td><td>Over-purchasing (ignored by Denci)</td></tr>
+      </tbody>
+    </table></div>
+    <p>His $57K covers row B&minus;C only. Our position covers the full A&minus;C gap across the entire post-settlement period, plus the rate errors (Findings 1 and 3). Under usage-based billing, Apex should pay based on row C &mdash; rows A and B are Broadridge&rsquo;s operational costs.</p>
+  </div>
+</div>
+<div class="section">
+  <h2>Summary</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Finding</th><th class="num">Amount</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Wrong wastage rate (2023)</td><td class="num red"><strong>$20,877</strong></td><td>Clear contract error</td></tr>
+      <tr><td>2</td><td>Billing on purchases instead of usage</td><td class="num red"><strong>$168,816</strong></td><td>Classification established</td></tr>
+      <tr><td>3</td><td>CPI applied to materials (paper)</td><td class="num red"><strong>$4,256</strong></td><td>Clear contract exclusion</td></tr>
+      <tr><td>4</td><td>Production wastage (9.2% vs 2% cap)</td><td class="num muted">&mdash;</td><td>Supporting evidence</td></tr>
+      <tr class="total-row"><td></td><td><strong>Total</strong></td><td class="num" style="color:#9D1526;font-weight:700"><strong>$193,949</strong></td><td></td></tr>
+    </tbody>
+  </table></div>
+</div>
+<div class="section">
+  <h2>Leverage</h2>
+  <div class="callout">
+    <ul style="line-height:2.0;padding-left:20px;margin:0;">
+      <li><strong>Denci's own words (Aug 2023 to Terry Ray):</strong> described envelope markup as &ldquo;cost plus wastage for generic stock &mdash; specifically for envelopes that is 5%.&rdquo; No mention of client-specific.</li>
+      <li><strong>Denci (Mar 2026):</strong> &ldquo;Yes they are standard envelopes.&rdquo;</li>
+      <li><strong>CPI applied to materials:</strong> Amendment states &ldquo;fees (other than materials) may be adjusted by CPI.&rdquo; Materials are explicitly excluded from CPI escalation.</li>
+      <li><strong>MSA Section S (Records and Inspection):</strong> Apex has audit rights to inspect books and records to verify service volumes and fees, including fees charged to Client.</li>
+    </ul>
+  </div>
+</div>
+</div><!-- content -->
+<div class="footer" style="background:#FDE8E8;border-top:2px solid #9D1526;">
+  <p style="color:#9D1526;font-weight:700;font-size:12px;margin:0 0 4px;">INTERNAL USE ONLY</p>
+  <p style="margin:0;">Apex Clearing Corporation</p>
+</div>
+</body>
+</html>

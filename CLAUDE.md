@@ -94,7 +94,7 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - Broadridge admits 10-15% operational wastage vs 2% contract limit for envelopes
 - Broadridge classifies our envelopes as **client-specific** (receipt-based billing). Our position: unbranded standard envelopes should be **generic** (usage-based).
 - **Classification dispute (Mar 9):** Denci gave four shifting answers, ultimately conceding "yes they are standard envelopes" (Mar 6 PM). Sophia sent email Mar 9 pinning concession to contract language, asking to confirm generic classification.
-- **Financial impact of misclassification: $192,372 (14.3%)** -- computed comparing actual invoiced (receipt-based) vs generic terms (usage-based). Added to Broadridge report but NOT yet cited in emails (strategic: establish principle first, bring dollars later).
+- **Financial impact of misclassification: $225,870 (14.3%)** -- computed per-month comparing actual invoiced (receipt-based) vs generic terms (usage-based, with contractual wastage + margin). Added to Broadridge report but NOT yet cited in emails (strategic: establish principle first, bring dollars later).
 - **2023 unauthorized margin: $44,218** -- 10% markup applied all of 2023 before Amendment authorized it (Jan 2024). Separate issue from classification, not yet raised.
 - **CPI does not apply to materials** -- Amendment explicitly excludes materials from CPI adjustments. No CPI escalation found in envelope unit rates.
 - Post-settlement spoils: 54,277 of 18,469,949 = 0.29%
