@@ -211,3 +211,15 @@ Complete session-by-session history of the Broadridge Envelope Reconciliation pr
 - `Print & Mail Billing Review - For Broadridge.html`
 - `Rectification Summary - For Broadridge Review.html`
 - `Rectification Summary - Internal.html`
+
+## Session 27 - 2026-04-28
+
+**Accomplished — COO approved usage-based switch, recovery basis email sent:**
+
+1. **Fritz (COO) agreed to flip to usage-based billing** — Asked whether Apex has standing to recover the historical overage.
+2. **Assessed recovery basis** — Confirmed no assumptions: all claims traced to documented source material (Denci emails, contract PDFs, month-by-month invoice data).
+3. **Drafted internal email to Fritz and Terry Ray** — Summarized recovery basis using two pillars: (a) Denci's five shifting answers and inability to defend classification, (b) contract language clearly defining generic vs client-specific by product characteristics, not operational handling.
+4. **Corrected figures** — Initially used older $225,870 figure; updated to current $219,566 total ($220K) from Session 26 rectification documents (F1+F2+F3).
+5. **Email sent** — To Fritz Louis-Charles and Terry Ray, Re: Envelope Recon. Also noted broader pattern: ICS overcharging, PostEdge annual credit chasing, Prospectus erroneous charges. Fritz now has the basis to authorize formal recovery.
+
+**No code/file changes this session — strategy and communication only.**

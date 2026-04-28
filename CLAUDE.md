@@ -131,17 +131,17 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Session Log
 
-### Latest — Session 26 (2026-04-28)
+### Latest — Session 27 (2026-04-28)
 
-**Consolidated to 2 files, fixed CPI finding with vendor price increase data.**
+**COO Fritz approved usage-based switch; recovery basis email sent to Fritz and Terry Ray.**
 
-- Deleted 3 redundant HTML files; kept only Internal + For Broadridge Review
-- CPI Finding 3 recalculated from D17 invoices: $4,256 → $4,729 (was only 14 months)
-- Vendor price increase (Feb 11, 2026) incorporated — proves $0.0115 was CPI, not vendor
-- Final combined total: F1 $20,877 + F2 $193,960 + F3 $4,729 = $219,566
-- Pages corrected: 12,524,445 → 12,475,407
+- Fritz asked if Apex has standing to recover overage — confirmed strong case (no assumptions)
+- Drafted and sent email summarizing two pillars: Denci's shifting answers + contract language
+- Recovery amount: $219,566 (~$220K) total across three findings
+- Also flagged broader pattern (ICS, PostEdge, Prospectus overcharges) in email
+- Next: await Fritz/Terry direction on formal recovery action
 
-Full session history (Sessions 1-26): `references/session-log.md` + `~/.claude/references/session-history.md`
+Full session history (Sessions 1-27): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 
