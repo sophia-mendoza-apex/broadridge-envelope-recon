@@ -131,18 +131,17 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Session Log
 
-### Latest — Session 25 (2026-04-28)
+### Latest — Session 26 (2026-04-28)
 
-**Updated all 4 rectification/billing documents through March 2026 with Q1 2026 data.**
+**Consolidated to 2 files, fixed CPI finding with vendor price increase data.**
 
-- Computed Q1 2026 usage-based amount from billing sheets, purchase reports, and D17 invoice PDFs
-- Q1 2026: $108,264 invoiced vs $83,120 usage-based = $25,144 overcharge
-- Finding 2: $168,816 → $193,960 | Combined (F1+F2): $189,693 → $214,837
-- Billing Review combined (F1+F2+F3): $193,704 → $219,093 (CPI $4,011→$4,256)
-- All date scopes updated, excess envelopes 2,569,551 → 2,673,125
-- Verified all figures consistent across all 4 documents
+- Deleted 3 redundant HTML files; kept only Internal + For Broadridge Review
+- CPI Finding 3 recalculated from D17 invoices: $4,256 → $4,729 (was only 14 months)
+- Vendor price increase (Feb 11, 2026) incorporated — proves $0.0115 was CPI, not vendor
+- Final combined total: F1 $20,877 + F2 $193,960 + F3 $4,729 = $219,566
+- Pages corrected: 12,524,445 → 12,475,407
 
-Full session history (Sessions 1-25): `references/session-log.md` + `~/.claude/references/session-history.md`
+Full session history (Sessions 1-26): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 

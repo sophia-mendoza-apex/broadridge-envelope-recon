@@ -190,3 +190,24 @@ Complete session-by-session history of the Broadridge Envelope Reconciliation pr
 | After YTD double-counting fix | +2,850,487 (+9.5%) | 7 |
 | After triple-count + Nov-23 recovery | +3,692,083 (+12.3%) | 13 |
 | Post-settlement scope (final) | +1,878,838 (+8.9%) wastage-adjusted | 19 |
+
+## Session 26 - 2026-04-28
+
+**Accomplished — Consolidated to 2 files, fixed CPI finding with vendor price increase data:**
+
+1. **Identified missed files from Session 25** — `Print & Mail Billing Rectification Summary - Internal.html` and `Print & Mail Billing Review - For Broadridge Review.html` were NOT updated in Session 25. Still showed F2=$168,816, total=$193,949, no 2026 row.
+2. **Fixed all stale values** — Updated both missed files: F2 $168,816→$193,960, total $193,949→$219,093 (later $219,566), added 2026 row ($108,264/$83,120/$25,144), excess 2,569,551→2,673,125.
+3. **Standardized titles** — All documents now use "Print & Mail Billing Rectification Summary" and "Print & Mail Billing Review" (proper capitalization).
+4. **Deleted 3 redundant files** — Kept only 2: `Print & Mail Billing Rectification Summary - Internal.html` and `Print & Mail Billing Review - For Broadridge Review.html`. Removed: `Rectification Summary - Internal.html`, `Rectification Summary - For Broadridge Review.html`, `Print & Mail Billing Review - For Broadridge.html`.
+5. **CPI Finding 3 recalculated from D17 invoices** — Prior $4,256 was only through Feb 2026 (14 months). Verified 15-month total from D17 invoices: $4,729. Pages corrected: 12,524,445→12,475,407.
+6. **Vendor price increase incorporated** — Feb 11, 2026 Broadridge notification: Pre-print Forms +5% (Mar 1), Envelopes +4% (Mar 1), Mill Direct Rolls +3% (Feb 25). Added callout in Billing Review showing expected rate with increase ($0.0114) vs charged ($0.0115). Proves $0.0115 was CPI-driven (established Jan 2026 before notification).
+7. **Final combined total: $219,566** — F1 $20,877 + F2 $193,960 + F3 $4,729.
+
+**Files modified:**
+- `Print & Mail Billing Rectification Summary - Internal.html` — all values updated
+- `Print & Mail Billing Review - For Broadridge Review.html` — all values updated, CPI table restructured with vendor callout
+
+**Files deleted:**
+- `Print & Mail Billing Review - For Broadridge.html`
+- `Rectification Summary - For Broadridge Review.html`
+- `Rectification Summary - Internal.html`
