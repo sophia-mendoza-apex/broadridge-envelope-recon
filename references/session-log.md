@@ -223,3 +223,17 @@ Complete session-by-session history of the Broadridge Envelope Reconciliation pr
 5. **Email sent** — To Fritz Louis-Charles and Terry Ray, Re: Envelope Recon. Also noted broader pattern: ICS overcharging, PostEdge annual credit chasing, Prospectus erroneous charges. Fritz now has the basis to authorize formal recovery.
 
 **No code/file changes this session — strategy and communication only.**
+
+## Session 28 - 2026-07-29
+
+**Accomplished — Analyzed Broadridge's proposed paper rate increase; drafted reply requesting vendor invoice:**
+
+1. **Contract question answered** — Broadridge can pass through actual vendor material cost without advance notice (materials are pass-through, no notice clause in Amendment No. 1; only the Postage Advance Account requires pre-wire notice). Verification is via monthly invoices (Amendment §4) and audit rights (MSA §23.S).
+2. **Category confirmed** — Apex paper stock = **Mill Direct Rolls – Blank Stock**, the **+3%** line on the Feb 11, 2026 Broadridge vendor notice (effective Feb 25, 2026). Notice also listed Envelopes +4% (Mar 1) and Pre-print Forms +5% (Mar 1); the +5% Pre-print line does NOT apply to our stock.
+3. **Decomposed Broadridge's rates** — Proposed increase from $0.011215 → $0.011495. Established $0.011215 is NOT vendor cost: it is $0.010900 (vendor cost) × 1.0289 (2025 CPI) — CPI improperly baked into a material. The $0.011495 = $0.011215 × ~1.025, stacking a second bump on the CPI-inflated base, ≈ **+5.5% over the $0.010900 cost** vs the 3% on the notice ($0.010900 ÷ into $0.011495 = 1.0546).
+4. **Correct rate** — 3% Blank Stock increase applied straight to vendor cost = $0.010900 × 1.03 = **$0.011227**. Overcharge ≈ $0.000268/page (~$2,700/yr, unverified estimate).
+5. **Drafted reply email** — Collaborative tone, requests supporting vendor invoice to confirm the $0.010900 cost base; shows the 3-row rate trace (vendor cost / current / proposed) without exposing the CPI-on-materials argument. Held CPI-on-materials card back per strategy.
+
+**Outstanding before send:** Verify the $0.010900 base against a recent D17 invoice so the cost anchor is solid.
+
+**No code/file changes this session — analysis and communication only.**

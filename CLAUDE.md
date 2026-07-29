@@ -131,17 +131,15 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 
 ## Session Log
 
-### Latest — Session 27 (2026-04-28)
+### Latest — Session 28 (2026-07-29)
 
-**COO Fritz approved usage-based switch; recovery basis email sent to Fritz and Terry Ray.**
+**Analyzed Broadridge's proposed paper rate increase ($0.011215 → $0.011495); drafted reply requesting vendor invoice.**
 
-- Fritz asked if Apex has standing to recover overage — confirmed strong case (no assumptions)
-- Drafted and sent email summarizing two pillars: Denci's shifting answers + contract language
-- Recovery amount: $219,566 (~$220K) total across three findings
-- Also flagged broader pattern (ICS, PostEdge, Prospectus overcharges) in email
-- Next: await Fritz/Terry direction on formal recovery action
+- Category confirmed: Mill Direct Rolls – Blank Stock = +3% line on Feb 11, 2026 notice (NOT the +5% Pre-print line)
+- $0.011215 = $0.010900 vendor cost × 1.0289 (2025 CPI baked into a material); proposed $0.011495 ≈ +5.5% over cost vs 3% on notice. Correct rate = $0.011227.
+- Next: verify $0.010900 base against a recent D17 invoice before Sophia sends the reply
 
-Full session history (Sessions 1-27): `references/session-log.md` + `~/.claude/references/session-history.md`
+Full session history (Sessions 1-28): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 
