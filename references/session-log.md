@@ -237,3 +237,31 @@ Complete session-by-session history of the Broadridge Envelope Reconciliation pr
 **Outstanding before send:** Verify the $0.010900 base against a recent D17 invoice so the cost anchor is solid.
 
 **No code/file changes this session — analysis and communication only.**
+
+## Session 29 - 2026-07-29
+
+**Accomplished — Extracted full D17 paper rate history, confirmed 21# grade, corrected Session 28 cost base, redrafted reply:**
+
+1. **Built paper rate history from source invoices** — New script `extract_paper_rates.py` reads every `Mon_C10_D17.pdf` (Jan 2023 - Mar 2026), parses the "ICS FORMS/PAPER CHARGES" section, and captures the per-page rate. All three paper lines (CONFIRM / LETTER / STATEMENT) bill at the same rate throughout. Verified two ways: displayed rate and amount ÷ quantity (invoice prints only 4 decimals, so the exact rate carries more precision).
+
+   | Effective | Rate ($/page) | Change | Notes |
+   |-----------|---------------|--------|-------|
+   | Jan 2023 | $0.009400 | baseline | |
+   | May 2023 | $0.009900 | +5.3% | = 21# vendor cost (see #3) |
+   | Jan 2024 | $0.010900 | +10.1% | = 2023 cost + 10% Amendment margin |
+   | Jan 2025 | $0.011215 | +2.89% | tracks CPI, no vendor notice |
+   | Jan 2026 | $0.011519 | +2.71% | tracks CPI, predates Feb notice |
+
+2. **CORRECTION to Session 28** — The $0.010900 that Session 28 called "vendor cost" is actually the **2024 billed rate**, not a vendor cost. The Session 28 "correct rate" of $0.011227 (= $0.010900 × 1.03) was therefore built on a wrong base and is void. The real 2023 vendor cost is **$0.0099** (21#, per #3). The CPI decomposition ($0.011215 = $0.0109 × 1.0289) was circular (treated a billed rate as a cost) and is dropped as a lead argument.
+
+3. **Grade confirmed: 21#** — Broadridge's own 2023 procurement email (Miguel Mendoza → Joann Rogers) prices base stock at **21# Blank $0.0099** and 24# Blank $0.0112. Our May-Dec 2023 billed rate was **exactly $0.0099** = the 21# vendor cost that year. This proves (a) our statements run on basic 21# stock, and (b) paper was billed at straight vendor cost in 2023 (no margin, pre-Amendment). Screenshot confirmed to be from **2023**, so it proves grade, not current cost.
+
+4. **Increase walk** — 2024 step to $0.0109 = $0.0099 × 1.10 (Amendment margin), contractual. The 2025 and 2026 steps (+2.9%, +2.7%) have **no vendor cost notice behind them** — the first vendor increase notice was Feb 11, 2026, after both steps were already in place — and track CPI, which the Amendment excludes for materials. The Jan 2026 rate ($0.011519) predates the Feb notice AND exceeds the $0.011495 Broadridge proposed in it.
+
+5. **Redrafted reply email** — Asserts the 21# grade using Broadridge's own 2023 cost match (no longer a guess), isolates the 2024 margin step as legitimate, questions only the 2025/2026 escalation, and keeps a single ask: send the current vendor invoice so the rate can be priced off actual cost. CPI-on-materials point now safe to include because it is anchored to notice timing + contract language, not the void $0.0109-as-cost math. User will attach the Feb notice + the 2023 procurement screenshot as support.
+
+**Files created:**
+- `extract_paper_rates.py` — reads all D17 invoices, extracts/parses paper per-page rates, flags change points
+
+**Files removed:**
+- `dump_one.py`, `temp_page1.png` — throwaway debug artifacts

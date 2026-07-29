@@ -125,21 +125,18 @@ py -3 "C:\Users\smendoza\Projects\Broadridge Envelopes\generate_broadridge_repor
 - [ ] **Awaiting Terry/Fritz response** — forwarded Denci's Mar 10 reply with recommendation to switch to usage-based billing, pending their approval
 - [ ] **Confirm inventory is all-location** — Denci provided 735,036 total (3/31/2026). Verify includes Edgewood, South Windsor, Coppell, etc.
 - [ ] **Usage-based switch negotiation** — Denci wants to burn through 735K Apex-coded stock first (~2.3 months). Q1 2026 data shows drawdown already underway.
+- [ ] **Send paper rate reply** — draft ready (Session 29): confirm 21# grade, question 2025/2026 CPI-tracking escalation, single ask = current paper vendor invoice. User attaching Feb notice + 2023 procurement screenshot.
 - [ ] Raise 2023 unauthorized margin ($44,218) as separate issue from classification
 - [ ] Obtain 3-5 vendor invoices (envelopes + paper) to validate Receipt Amount composition
 - [ ] Request actual Jun-20 purchase report from Broadridge
 
 ## Session Log
 
-### Latest — Session 28 (2026-07-29)
+### Latest — Session 29 (2026-07-29)
 
-**Analyzed Broadridge's proposed paper rate increase ($0.011215 → $0.011495); drafted reply requesting vendor invoice.**
+**Extracted full D17 paper rate history (Jan 2023-Mar 2026), confirmed 21# grade, redrafted reply.** Rates: $0.0094 (Jan'23) → $0.0099 (May'23) → $0.0109 (Jan'24) → $0.011215 (Jan'25) → $0.011519 (Jan'26, current). Grade = **21#** (2023 billed $0.0099 = Broadridge's own 2023 21# vendor cost). Corrected Session 28: the "$0.010900 vendor cost" was actually the 2024 *billed* rate; real cost was $0.0099. 2024 step = +10% Amendment margin (legit); 2025/2026 steps track CPI (no vendor notice until Feb 2026). Reply email drafted, single ask = current vendor invoice. Script: `extract_paper_rates.py`.
 
-- Category confirmed: Mill Direct Rolls – Blank Stock = +3% line on Feb 11, 2026 notice (NOT the +5% Pre-print line)
-- $0.011215 = $0.010900 vendor cost × 1.0289 (2025 CPI baked into a material); proposed $0.011495 ≈ +5.5% over cost vs 3% on notice. Correct rate = $0.011227.
-- Next: verify $0.010900 base against a recent D17 invoice before Sophia sends the reply
-
-Full session history (Sessions 1-28): `references/session-log.md` + `~/.claude/references/session-history.md`
+Full session history (Sessions 1-29): `references/session-log.md` + `~/.claude/references/session-history.md`
 
 ## Reference Files
 
